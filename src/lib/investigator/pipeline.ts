@@ -165,7 +165,12 @@ export async function investigate(
 
 async function identify(query: string, llm: LLM): Promise<Identity> {
   const r = await llm.grounded(identifyPrompt(query), { system: RESEARCH_SYSTEM, label: "identify" });
-  const parsed = parseJsonLoose(r.text) as Partial<Identity> | null;
+  let parsed = parseJsonLoose(r.text) as Partial<Identity> | null;
+  // Grounded responses occasionally come back truncated; fall back to an ungrounded JSON-mode call.
+  if (!parsed?.appName) {
+    const text = await llm.structured(identifyPrompt(query), { system: RESEARCH_SYSTEM, schema: undefined, label: "identify-fallback" });
+    parsed = parseJsonLoose(text) as Partial<Identity> | null;
+  }
   if (!parsed?.appName) throw new LLMError("Could not identify the app from that name or URL.", "other");
   const website = parsed.website || (query.startsWith("http") ? query : "");
   const domains = new Set((parsed.officialDomains ?? []).map((d) => d.replace(/^www\./, "").toLowerCase()));

@@ -128,7 +128,7 @@ export async function probeAuthorize(id: string, authorizeUrl: string): Promise<
     else if (!location && isHtml(text)) parts.push("serves an HTML login/consent page");
     else if (!location) parts.push(`"${snippet(text, 100)}"`);
     if (!ok) parts.push("→ endpoint looks wrong or unavailable");
-    else if (err || res.status >= 400) parts.push("→ endpoint is live and rejects the unknown client");
+    else if (err || res.status >= 400 || /error/i.test(location ?? "")) parts.push("→ endpoint is live and rejects the unknown client");
     else parts.push("→ endpoint is live (client validation may happen after login)");
     return { id, kind: "authorize", target: authorizeUrl, ok, status: res.status, observed: parts.join("; "), at: now() };
   } catch (e) {

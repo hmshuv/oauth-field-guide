@@ -75,9 +75,10 @@ export class GeminiLLM implements LLM {
   private async call(
     model: string,
     contents: string,
-    config: Record<string, unknown>,
+    initialConfig: Record<string, unknown>,
     timeoutMs: number,
   ): Promise<GenerateContentResponse> {
+    let config = initialConfig;
     for (let attempt = 0; ; attempt++) {
       try {
         const res = await this.ai.models.generateContent({
@@ -95,6 +96,15 @@ export class GeminiLLM implements LLM {
         // One retry for transient failures only; auth/model errors fail fast so no tokens are wasted.
         if (attempt === 0 && retryable(err, (e as { status?: number })?.status)) {
           await new Promise((r) => setTimeout(r, 2500));
+          continue;
+        }
+        // Rejected requests are not billed: if a configured model doesn't support a setting, drop it and retry.
+        if (attempt === 0 && /thinking/i.test(err.message) && config.thinkingConfig) {
+          config = { ...config, thinkingConfig: undefined };
+          continue;
+        }
+        if (attempt === 0 && /url_?context/i.test(err.message) && Array.isArray(config.tools)) {
+          config = { ...config, tools: (config.tools as object[]).filter((t) => !("urlContext" in t)) };
           continue;
         }
         throw err;

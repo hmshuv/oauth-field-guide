@@ -1,6 +1,4 @@
 {
-  "schemaVersion": 1,
-  "slug": "gmail",
   "appName": "Gmail (Google)",
   "website": "https://mail.google.com",
   "category": "Email",
@@ -243,6 +241,40 @@
             "T3"
           ],
           "note": "GET https://accounts.google.com/o/oauth2/v2/auth?client_id=probe-invalid&response_type=code&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&scope=…gmail.send&access_type=offline on 2026-10-28 returned 302 → https://accounts.google.com/signin/oauth/error?authError=… (base64 decodes to 'invalid_client … The OAuth client was not found.'). POST https://oauth2.googleapis.com/token with grant_type=authorization_code, code=bogus, client_id=probe-invalid, client_secret=probe-invalid on 2026-10-28 returned HTTP 401 {\"error\":\"invalid_client\",\"error_description\":\"The OAuth client was not found.\"}; grant_type=refresh_token with a bogus token returned the same."
+        }
+      },
+      {
+        "label": "PKCE (from discovery document)",
+        "value": "Advertised methods: plain, S256",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "P1"
+          ],
+          "note": "Fetched https://accounts.google.com/.well-known/openid-configuration"
+        }
+      },
+      {
+        "label": "Scopes advertised in discovery",
+        "value": "openid, email, profile",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "P1"
+          ],
+          "note": "Fetched https://accounts.google.com/.well-known/openid-configuration"
+        }
+      },
+      {
+        "label": "Endpoints observed live",
+        "value": "Authorize: HTTP 302; redirects to accounts.google.com/signin/oauth/error; → endpoint is live (client validation may happen after login) · Token: HTTP 401; error \"invalid_client: The OAuth client was not found.\"; → token endpoint is live and rejects a bogus code",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "P2",
+            "P3"
+          ],
+          "note": "Requests sent with a deliberately invalid client id / code; no credentials used."
         }
       }
     ]
@@ -698,6 +730,8 @@
     ]
   },
   "nextAction": "Write down which features truly need to read mail. If any do, start the privacy policy, Limited Use statement and Search Console domain verification today, because restricted verification and CASA can't start without them.",
+  "schemaVersion": 1,
+  "slug": "gmail",
   "origin": {
     "kind": "curated",
     "generatedAt": "2026-10-28T00:00:00Z",
@@ -837,7 +871,84 @@
       "title": "Probe: token endpoint with bogus client/code (2026-10-28)",
       "url": "https://oauth2.googleapis.com/token",
       "kind": "probe"
+    },
+    {
+      "id": "P1",
+      "title": "Our probe: discovery check on accounts.google.com",
+      "url": "https://accounts.google.com/.well-known/openid-configuration",
+      "kind": "probe"
+    },
+    {
+      "id": "P2",
+      "title": "Our probe: authorize check on accounts.google.com",
+      "url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "kind": "probe"
+    },
+    {
+      "id": "P3",
+      "title": "Our probe: token check on oauth2.googleapis.com",
+      "url": "https://oauth2.googleapis.com/token",
+      "kind": "probe"
+    },
+    {
+      "id": "P4",
+      "title": "Our probe: page check on console.cloud.google.com",
+      "url": "https://console.cloud.google.com/auth/overview",
+      "kind": "probe"
+    },
+    {
+      "id": "P5",
+      "title": "Our probe: page check on developers.google.com",
+      "url": "https://developers.google.com/identity/protocols/oauth2/web-server",
+      "kind": "probe"
     }
   ],
-  "probes": []
+  "probes": [
+    {
+      "id": "P1",
+      "kind": "discovery",
+      "target": "https://accounts.google.com/.well-known/openid-configuration",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200; issuer https://accounts.google.com; authorize https://accounts.google.com/o/oauth2/v2/auth; PKCE methods: plain, S256",
+      "at": "2026-10-28T00:45:00.562Z"
+    },
+    {
+      "id": "P2",
+      "kind": "authorize",
+      "target": "https://accounts.google.com/o/oauth2/v2/auth",
+      "ok": true,
+      "status": 302,
+      "observed": "HTTP 302; redirects to accounts.google.com/signin/oauth/error; → endpoint is live (client validation may happen after login)",
+      "at": "2026-10-28T00:45:00.719Z"
+    },
+    {
+      "id": "P3",
+      "kind": "token",
+      "target": "https://oauth2.googleapis.com/token",
+      "ok": true,
+      "status": 401,
+      "observed": "HTTP 401; error \"invalid_client: The OAuth client was not found.\"; → token endpoint is live and rejects a bogus code",
+      "at": "2026-10-28T00:45:00.847Z"
+    },
+    {
+      "id": "P4",
+      "kind": "page",
+      "target": "https://console.cloud.google.com/auth/overview",
+      "ok": true,
+      "status": 302,
+      "observed": "HTTP 302; redirects to accounts.google.com/ServiceLogin",
+      "at": "2026-10-28T00:45:00.825Z"
+    },
+    {
+      "id": "P5",
+      "kind": "page",
+      "target": "https://developers.google.com/identity/protocols/oauth2/web-server",
+      "ok": true,
+      "status": 302,
+      "observed": "HTTP 302; redirects to developers.google.com/identity/protocols/oauth2/web-server",
+      "at": "2026-10-28T00:45:01.225Z"
+    }
+  ],
+  "corrections": []
 }

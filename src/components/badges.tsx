@@ -39,7 +39,7 @@ export function EvidenceBadge({ evidence }: { evidence: Evidence }) {
           {cited.length > 0 && <span className="opacity-70">· {cited.map((s) => s.id).join(" ")}</span>}
         </EvidencePill>
       </button>
-      <span className="pointer-events-auto invisible absolute left-0 top-full z-30 mt-1 w-80 max-w-[80vw] rounded-lg border border-line bg-surface p-3 text-xs text-ink opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+      <span className="absolute right-0 top-full z-30 mt-1 hidden w-80 max-w-[85vw] rounded-lg border border-line bg-surface p-3 text-xs text-ink shadow-lg group-hover:block group-focus-within:block sm:left-0 sm:right-auto">
         <span className="block font-medium">{EVIDENCE_INFO[evidence.status].label}</span>
         <span className="mt-0.5 block text-muted">{EVIDENCE_INFO[evidence.status].hint}</span>
         {evidence.note && <span className="mt-2 block">{evidence.note}</span>}

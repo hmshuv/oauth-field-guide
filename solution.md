@@ -49,3 +49,14 @@ To build a tool developers genuinely use and share, design around four core user
 * Clean, interactive frontend interface.
 * Clear visual breakdown: Time estimates, Gotchas, Agent vs. Human responsibility split, and Source Confidence markers.
 * Designed for easy sharing across engineering and product teams.
+
+---
+
+## 6. Agreed Decisions (from the first build run, 2026-10-28)
+Full log with options and rationale: [`agentSolution.md`](agentSolution.md) §4.
+* **Taxonomy:** 6 archetypes (instant self-serve · self-serve review-to-scale · scope-based verification · tenant-scoped · partner-gated · no public OAuth) × 14 friction flags; difficulty computed in code.
+* **Two clocks:** every guide separates "working with your own account" from "any customer can connect", each with hands-on time vs. provider wait.
+* **Evidence:** Tested / Source-backed / Community-reported / Uncertain, per claim, enforced by code.
+* **Library:** GitHub, Slack, Notion, Gmail + Salesforce + LinkedIn.
+* **Live investigator:** Gemini (`gemini-3.8-flash` default), grounded research tracks → structured synthesis → probes; BYO key supported; key only in env.
+* **Sharing:** short link, portable link, Markdown, print/PDF. Collaboration/flagging features dropped (scope).

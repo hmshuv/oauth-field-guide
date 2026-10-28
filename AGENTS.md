@@ -1,3 +1,10 @@
+# Working in this repo
+
+- Setup and checks: see README.md → "For coding agents setting this up". The Gemini key comes from the
+  environment (`GEMINI_API_KEY`, or `.env.local` copied from `.env.example`); never commit keys.
+- Guide contract: `src/lib/guide/schema.ts`. Curated guides in `data/library/` must pass `npm run validate`.
+- Project/agent protocol for the author's planning docs: `agent.md`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

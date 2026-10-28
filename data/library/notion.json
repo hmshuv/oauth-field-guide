@@ -1,6 +1,4 @@
 {
-  "schemaVersion": 1,
-  "slug": "notion",
   "appName": "Notion",
   "website": "https://www.notion.com",
   "category": "Productivity / Docs & wikis",
@@ -186,6 +184,18 @@
             "S11"
           ],
           "note": "GET https://mcp.notion.com/.well-known/oauth-authorization-server on 2026-10-28 returned metadata with code_challenge_methods_supported [S256], registration_endpoint https://mcp.notion.com/register, client_id_metadata_document_supported true, grant_types authorization_code/refresh_token/jwt-bearer. GET https://api.notion.com/.well-known/oauth-authorization-server and /.well-known/openid-configuration both returned HTTP 400 (no discovery for the REST API OAuth)."
+        }
+      },
+      {
+        "label": "Endpoints observed live",
+        "value": "Authorize: HTTP 302; redirects to app.notion.com/install-integration; → endpoint is live (client validation may happen after login) · Token: HTTP 401; error \"invalid_client\"; → token endpoint is live and rejects a bogus code",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "P1",
+            "P2"
+          ],
+          "note": "Requests sent with a deliberately invalid client id / code; no credentials used."
         }
       }
     ]
@@ -605,6 +615,8 @@
     ]
   },
   "nextAction": "Open https://app.notion.com/developers/connections, create a public connection with installation scope 'Any workspace', and note which fields the form requires. That settles two open questions while you get your client ID and secret.",
+  "schemaVersion": 1,
+  "slug": "notion",
   "origin": {
     "kind": "curated",
     "generatedAt": "2026-10-28T00:00:00Z",
@@ -726,7 +738,69 @@
       "title": "Probe: Notion MCP OAuth metadata + api.notion.com discovery check (2026-10-28)",
       "url": "https://mcp.notion.com/.well-known/oauth-authorization-server",
       "kind": "probe"
+    },
+    {
+      "id": "P1",
+      "title": "Our probe: authorize check on api.notion.com",
+      "url": "https://api.notion.com/v1/oauth/authorize",
+      "kind": "probe"
+    },
+    {
+      "id": "P2",
+      "title": "Our probe: token check on api.notion.com",
+      "url": "https://api.notion.com/v1/oauth/token",
+      "kind": "probe"
+    },
+    {
+      "id": "P3",
+      "title": "Our probe: page check on app.notion.com",
+      "url": "https://app.notion.com/developers/connections",
+      "kind": "probe"
+    },
+    {
+      "id": "P4",
+      "title": "Our probe: page check on developers.notion.com",
+      "url": "https://developers.notion.com/guides/get-started/authorization",
+      "kind": "probe"
     }
   ],
-  "probes": []
+  "probes": [
+    {
+      "id": "P1",
+      "kind": "authorize",
+      "target": "https://api.notion.com/v1/oauth/authorize",
+      "ok": true,
+      "status": 302,
+      "observed": "HTTP 302; redirects to app.notion.com/install-integration; → endpoint is live (client validation may happen after login)",
+      "at": "2026-10-28T00:44:59.699Z"
+    },
+    {
+      "id": "P2",
+      "kind": "token",
+      "target": "https://api.notion.com/v1/oauth/token",
+      "ok": true,
+      "status": 401,
+      "observed": "HTTP 401; error \"invalid_client\"; → token endpoint is live and rejects a bogus code",
+      "at": "2026-10-28T00:44:59.592Z"
+    },
+    {
+      "id": "P3",
+      "kind": "page",
+      "target": "https://app.notion.com/developers/connections",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200; title \"Notion\"",
+      "at": "2026-10-28T00:44:59.506Z"
+    },
+    {
+      "id": "P4",
+      "kind": "page",
+      "target": "https://developers.notion.com/guides/get-started/authorization",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200; title \"Authorization - Notion Docs\"",
+      "at": "2026-10-28T00:44:59.966Z"
+    }
+  ],
+  "corrections": []
 }
