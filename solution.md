@@ -4,7 +4,9 @@ Evidence-graded OAuth setup guides for AI-agent builders, and a live agent that 
 
 **Himanshu Gupta · Composio APM Integrations take-home**
 
-Live: https://oauth-field-guide-liart.vercel.app · Code: https://github.com/hmshuv/oauth-field-guide · Walkthrough: [Loom video](LOOM_LINK)
+Walkthrough: [Loom video](https://www.loom.com/share/717995e2d75449998b639e4912f94d39) · Live: https://oauth-field-guide-liart.vercel.app · Code: https://github.com/hmshuv/oauth-field-guide · Setup: [README](https://github.com/hmshuv/oauth-field-guide#readme)
+
+To run the live agent on the hosted site, open **Settings** (top right) and paste a free Gemini API key from aistudio.google.com/apikey. The library and the example guides work without one.
 
 ## 1. The problem
 

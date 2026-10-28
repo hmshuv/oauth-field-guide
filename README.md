@@ -6,7 +6,17 @@
 - **Example live runs** — real output of the live agent (Linear: rated *Moderate*; Plausible Analytics: *No public OAuth*) in `data/examples/`, so a fresh deployment shows what the agent produces without spending tokens.
 - **Live investigator** — type any app name or website; an agent researches it, probes its live OAuth endpoints, and publishes a shareable guide in ~1–2 minutes.
 
-**Live:** https://oauth-field-guide-liart.vercel.app · **Write-up:** [solution.md](solution.md) ([PDF](Solution.pdf)) · **How it was planned and run:** [docs/process](docs/process) · **Evidence:** [docs/verification.md](docs/verification.md)
+**Live:** https://oauth-field-guide-liart.vercel.app · **Walkthrough:** [Loom video](https://www.loom.com/share/717995e2d75449998b639e4912f94d39) · **Write-up:** [solution.md](solution.md) ([PDF](Himanshu_Gupta_Composio_APM_Submission.pdf)) · **How it was planned and run:** [docs/process](docs/process) · **Evidence:** [docs/verification.md](docs/verification.md)
+
+## Trying the live agent on the hosted site
+
+The hosted demo doesn't ship with a shared Gemini key, so live investigations run on **your own** key:
+
+1. Get a free key at https://aistudio.google.com/apikey (Google account, no billing needed).
+2. On the site, click **Settings** (top right), paste the key and **Save**.
+3. Type any app that isn't in the library (e.g. `HubSpot`, `Asana`, `Xero`) and press **Investigate live**.
+
+Your key stays in your browser and is only sent to this app's own API with each run; it's never stored on the server. Without a key, everything else works: the seven library guides and the two example live runs (`/guides/linear`, `/guides/plausible-analytics`). Free-tier keys usually don't include Google Search grounding, in which case the agent reads each provider's official pages directly (see *Live pipeline* below) and a run takes 1–3 minutes. If Gemini reports its free quota is used up, wait a minute or try again later. To run it locally with a key in `.env.local` instead, see the Quickstart.
 
 ## Quickstart
 
@@ -45,7 +55,7 @@ No key? The library works without one. **Free-tier keys work too:** Google Searc
 | Walkthrough | "Your path at a glance" swimlane map at the top of each guide (phases × agent / you / provider wait / customer admin, plus milestones) | Text-heavy guides need a one-glance view; drawn from guide data, so it costs no tokens. |
 | Token thrift | Free key/model preflight; curated + cached guides cost nothing; research checkpointed so a failed synthesis retries without re-research; one cheap repair call for invalid JSON; per-IP limit on the shared key | The live flow should never waste a run. |
 | Sharing | Short link `/guides/<slug>` + portable link (whole guide compressed into the URL fragment) + Markdown + print/PDF | Short links are friendly; portable links survive serverless instances and need no database. |
-| Scope | 6 deep guides instead of 100 shallow ones | A trustworthy slice per archetype + a live investigator for the long tail is more useful than unverified breadth. |
+| Scope | 7 deep guides instead of 100 shallow ones | A trustworthy slice per archetype + a live investigator for the long tail is more useful than unverified breadth. |
 
 ## Architecture
 
