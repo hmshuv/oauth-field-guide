@@ -6,6 +6,8 @@
 - **Example live runs** — real output of the live agent (Linear: rated *Moderate*; Plausible Analytics: *No public OAuth*) in `data/examples/`, so a fresh deployment shows what the agent produces without spending tokens.
 - **Live investigator** — type any app name or website; an agent researches it, probes its live OAuth endpoints, and publishes a shareable guide in ~1–2 minutes.
 
+**Live:** https://oauth-field-guide-liart.vercel.app · **Write-up:** [solution.md](solution.md) ([PDF](Solution.pdf)) · **How it was planned and run:** [docs/process](docs/process) · **Evidence:** [docs/verification.md](docs/verification.md)
+
 ## Quickstart
 
 ```bash

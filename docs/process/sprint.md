@@ -21,7 +21,7 @@
 ### Sprint 0 Definition of Done
 * A research brief (`docs/research.md`) with the taxonomy, its evidence, and the chosen reference apps.
 
-> ✅ **Done (2026-10-28).** Decisions 0.1 / 0.2 made autonomously and logged in `agentSolution.md` §4. Taxonomy: 6 archetypes × 14 friction flags; library = GitHub, Slack, Notion, Gmail + Salesforce (tenant-scoped) + LinkedIn (partner-gated).
+> ✅ **Done.** Taxonomy: 6 archetypes × 14 friction flags. Library = GitHub, Slack, Notion, Gmail + Salesforce (tenant-scoped) + LinkedIn (partner-gated); Zoom added later.
 
 ---
 
@@ -41,7 +41,7 @@
 * Working JSON dataset containing 3–4 detailed, realistic app guides conforming to the schema.
 * Clear baseline for what a high-quality guide looks like.
 
-> ✅ **Done.** Schema in `src/lib/guide/schema.ts`; 6 curated guides validated (`npm run validate`) and probed (`npm run probe`). Decisions 1.1 / 1.2 logged in `agentSolution.md`.
+> ✅ **Done.** Schema in `src/lib/guide/schema.ts`; curated guides validated (`npm run validate`) and probed (`npm run probe`).
 
 ---
 
@@ -60,7 +60,7 @@
 ### Sprint 2 Definition of Done
 * Submitting an unlisted app (e.g. `Linear` or `Airtable`) triggers the agent live and returns a valid, structured guide with confidence markers.
 
-> ✅ **Built; verified offline** (mock mode + `npm run smoke` against SDK-shaped responses, real probes). ⚠️ Not yet run against the real Gemini API — no key during the build. Decisions 2.1 / 2.2 / 2.3 logged.
+> ✅ **Done.** Verified offline first (mock mode + `npm run smoke`), then live on a free-tier Gemini key (Linear, Plausible Analytics — see Sprint 4).
 
 ---
 
@@ -80,4 +80,24 @@
 * Working interactive web experience demonstrating both library lookup and live generation.
 * Clear README documenting setup, architecture decisions, and limitations.
 
-> ✅ **Done.** README, `docs/verification.md`, method page. Decisions 3.1–3.4 logged. Not deployed (user deploys/pushes).
+> ✅ **Done.** README, `docs/verification.md`, method page.
+
+---
+
+## Sprint 4: Real-World Testing & Iteration
+**Goal:** Run the product against real keys and real apps, then fix what that exposes.
+
+### Tasks
+- [x] Handle missing documentation: availability check before full research, "No public OAuth" verdict, evidence coverage with an "Unrated" verdict, assumed steps, never-invented URLs, an "Ask the provider" message.
+- [x] Free-tier keys: fall back to reading official pages directly when Search grounding isn't available; model fallback chain for overload and per-model daily quotas.
+- [x] "Your path at a glance" swimlane map with arrows (agent / you / provider / customer admin, waits, milestones).
+- [x] Reorganise each guide: "Do it" first, "Why & details" second.
+- [x] Add Zoom to the library; ship real live runs (Linear, Plausible) as examples.
+- [x] Deploy to Vercel.
+
+### 🛑 Decision Checkpoints
+1. **Decision 4.1 — No search grounding on the key:** enable billing vs. a search-free fallback vs. another search API → built the fallback (works for reviewers on free keys too).
+2. **Decision 4.2 — Guide visual:** swimlane map vs. two-clock timeline vs. phase stepper → swimlane map.
+3. **Decision 4.3 — Text density:** inline what+why vs. two-part page → two-part page.
+
+> ✅ **Done.** Live at https://oauth-field-guide-liart.vercel.app

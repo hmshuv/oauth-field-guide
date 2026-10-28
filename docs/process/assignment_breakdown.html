@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APM Assignment Breakdown & Guide</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Theme tokens so the page renders standalone (light by default, dark when the OS prefers it) */
+    :root {
+      --background: #fafaf9; --foreground: #1c1c1a; --card: #ffffff; --content: #f2f2f0;
+      --border: #e3e3df; --muted-foreground: #6b6b66; --primary: #3b5bdb; --primary-foreground: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #111110; --foreground: #ececea; --card: #1a1a19; --content: #242422;
+        --border: #34342f; --muted-foreground: #9c9c96; --primary: #8ea2f5; --primary-foreground: #0f1222;
+      }
+    }
+    html, body { background: var(--background) !important; }
+
+    /* Smooth transitions and custom scrollbar */
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.5); }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-3 sm:p-6 min-h-screen">
+
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header Card -->
+    <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="badge bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">De-Jargonized Master Guide</span>
+            <span class="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">4 Sections Mapped</span>
+            <span class="badge bg-amber-500/10 text-amber-500 border border-amber-500/20">6–8 Hr Scope</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--foreground)]">APM Integrations Take-Home Demystified</h1>
+          <p class="text-[var(--muted-foreground)] text-sm sm:text-base mt-1">
+            Zero fluff, real-world application, interactive flowcharts, and every single original point cross-referenced.
+          </p>
+        </div>
+        <div class="bg-[var(--content)]/40 p-3 rounded-xl border border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+          <div class="font-semibold text-[var(--foreground)] mb-1">Quick Mental Model:</div>
+          <div>You're building the <strong>"Google Maps for OAuth Apps"</strong>: telling devs exactly how to connect apps without hitting unexpected 4-week approval walls.</div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex flex-wrap gap-2 mt-6 border-t border-[var(--border)] pt-4" id="tab-buttons">
+        <button onclick="switchTab('problem')" id="btn-problem" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
+          1. The Problem
+        </button>
+        <button onclick="switchTab('assignment')" id="btn-assignment" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-[var(--content)] hover:bg-[var(--border)] text-[var(--muted-foreground)]">
+          2. Your Assignment
+        </button>
+        <button onclick="switchTab('context')" id="btn-context" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-[var(--content)] hover:bg-[var(--border)] text-[var(--muted-foreground)]">
+          3. Understanding the Core
+        </button>
+        <button onclick="switchTab('submission')" id="btn-submission" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-[var(--content)] hover:bg-[var(--border)] text-[var(--muted-foreground)]">
+          4. Show Us That It Works
+        </button>
+      </nav>
+    </header>
+
+    <!-- TAB 1: THE PROBLEM -->
+    <section id="tab-content-problem" class="tab-pane space-y-6">
+      
+      <!-- Real World Analogy Card -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center font-bold text-lg">⚠️</div>
+          <div>
+            <h2 class="text-lg font-bold text-[var(--foreground)]">What Is The Real-World Problem? (Cut the Jargon)</h2>
+            <p class="text-xs text-[var(--muted-foreground)]">Why does this assignment exist in the first place?</p>
+          </div>
+        </div>
+        
+        <p class="text-sm leading-relaxed text-[var(--foreground)] mb-4">
+          Imagine you build an AI assistant (like an auto-scheduler bot). For it to work, your user needs to click <em>"Connect Google Calendar"</em> or <em>"Connect Slack"</em>. 
+          To make that login popup appear, <strong>you (the developer) must register an "OAuth App"</strong> with Google or Slack first.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+          <div class="p-4 rounded-xl border border-red-500/20 bg-red-500/5">
+            <h3 class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">The Dev's Naive Expectation</h3>
+            <ul class="text-xs text-[var(--muted-foreground)] space-y-2">
+              <li>• "I'll just get a Client ID & Secret in 5 minutes."</li>
+              <li>• "All OAuth providers work basically the same."</li>
+              <li>• "We can launch tomorrow!"</li>
+            </ul>
+          </div>
+          <div class="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+            <h3 class="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">The Brutal Reality</h3>
+            <ul class="text-xs text-[var(--muted-foreground)] space-y-2">
+              <li>• Google asks for a YouTube demo video, DNS proof, and $1,500 security audit.</li>
+              <li>• Wait time is 3 to 6 weeks with human auditors rejecting tickets.</li>
+              <li>• Documentation is buried across 5 obsolete wiki pages.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flowchart: The Developer Reality Gap -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-4">Flowchart: The Developer Friction Loop</h3>
+        <div class="overflow-x-auto pb-2">
+          <svg viewBox="0 0 850 160" class="w-full min-w-[700px] text-xs font-medium">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--muted-foreground)" />
+              </marker>
+            </defs>
+
+            <!-- Node 1: Dev starts -->
+            <rect x="20" y="45" width="150" height="70" rx="10" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="95" y="75" text-anchor="middle" fill="var(--foreground)" font-weight="600" font-size="12">1. Builds AI Agent</text>
+            <text x="95" y="95" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Needs user to connect app</text>
+
+            <line x1="170" y1="80" x2="220" y2="80" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow)"/>
+
+            <!-- Node 2: Visits Provider Portal -->
+            <rect x="230" y="45" width="160" height="70" rx="10" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="310" y="75" text-anchor="middle" fill="var(--foreground)" font-weight="600" font-size="12">2. Provider Console</text>
+            <text x="310" y="95" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Enters unfamiliar UI flow</text>
+
+            <line x1="390" y1="80" x2="440" y2="80" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow)"/>
+
+            <!-- Node 3: The Black Box -->
+            <rect x="450" y="30" width="180" height="100" rx="10" fill="rgba(239, 68, 68, 0.08)" stroke="rgba(239, 68, 68, 0.3)" stroke-width="1.5"/>
+            <text x="540" y="60" text-anchor="middle" fill="#ef4444" font-weight="700" font-size="12">3. The Unknown Abyss</text>
+            <text x="540" y="80" text-anchor="middle" fill="var(--foreground)" font-size="11">• 1 hr or 4 weeks wait?</text>
+            <text x="540" y="98" text-anchor="middle" fill="var(--foreground)" font-size="11">• Obscure scope permissions?</text>
+            <text x="540" y="116" text-anchor="middle" fill="var(--foreground)" font-size="11">• Mystery email rejections?</text>
+
+            <line x1="630" y1="80" x2="680" y2="80" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow)"/>
+
+            <!-- Node 4: The Solution (Your App) -->
+            <rect x="690" y="45" width="150" height="70" rx="10" fill="rgba(16, 185, 129, 0.1)" stroke="rgba(16, 185, 129, 0.4)" stroke-width="2"/>
+            <text x="765" y="75" text-anchor="middle" fill="#10b981" font-weight="700" font-size="12">4. Your Solution</text>
+            <text x="765" y="95" text-anchor="middle" fill="var(--foreground)" font-size="11">Instant Guide & Roadmap</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Point-by-point cross-reference -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Point-by-Point De-Jargonizer: "Problem"</h3>
+        
+        <!-- Ref 1.1 & 1.2 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-blue-500/10 text-blue-500 border border-blue-500/20">Ref 1.1 & 1.2</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Connecting user apps & OAuth prerequisites</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-blue-500 pl-3">
+            "A developer building an AI agent wants their users to connect an app. Before they can launch, they may need to create an OAuth app with the provider and get it approved."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> If an AI agent wants to act on a user's behalf (e.g. read Notion pages or post to Twitter), the user must authenticate via OAuth. But the developer can't even show that login prompt until they register a developer app in that provider's console and pass whatever approval requirements that provider enforces.
+          </div>
+        </div>
+
+        <!-- Ref 1.3 & 1.4 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-blue-500/10 text-blue-500 border border-blue-500/20">Ref 1.3 & 1.4</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Fragmented docs & timeline blind spots</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-blue-500 pl-3">
+            "Today, developers piece together documentation, work through unfamiliar setup flows, and email providers to understand the requirements. It can be hard to tell whether setup will take an hour or involve weeks of waiting, how much work is needed, or what might block approval."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Provider docs are notoriously disorganized. A developer has no upfront visibility into whether an app takes 10 minutes (Slack test app) or 4 weeks of back-and-forth review emails (Google Sensitive Scopes). They hit surprise blockers right before launch.
+          </div>
+        </div>
+
+        <!-- Ref 1.5 & 1.6 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Ref 1.5 & 1.6</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">The Core Goal: Lookup & Shareable Roadmap</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-emerald-500 pl-3">
+            "Help developers understand that path and make progress on it. They should be able to look up an app, get a guide they can use and share, and know what to do next."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Your product must be a single place where a developer looks up an app (or pastes its URL), instantly gets a realistic time estimate, a step-by-step roadmap, and a link they can send to their teammate or founder saying "Here is exactly what we have to do."
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- TAB 2: YOUR ASSIGNMENT -->
+    <section id="tab-content-assignment" class="tab-pane hidden space-y-6">
+
+      <!-- What to build card -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-lg">🎯</div>
+          <div>
+            <h2 class="text-lg font-bold text-[var(--foreground)]">What You Actually Need To Build</h2>
+            <p class="text-xs text-[var(--muted-foreground)]">Core architectural requirements broken down</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-2">
+            <div class="font-bold text-indigo-400 text-sm">Feature 1: The App Library</div>
+            <p class="text-[var(--muted-foreground)]">
+              A curated catalog of pre-computed OAuth setup guides for a few varied apps (e.g. GitHub, Slack, Notion, Google).
+            </p>
+            <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] text-[11px] text-[var(--muted-foreground)]">
+              ⚠️ Note: The prompt says the ultimate vision is 100 apps, but <strong>you only need a few varied apps</strong> for this submission!
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-2">
+            <div class="font-bold text-emerald-400 text-sm">Feature 2: Live AI App Investigator</div>
+            <p class="text-[var(--muted-foreground)]">
+              An input box where a developer can enter ANY app name or URL (e.g., <em>"Linear"</em> or <em>"https://hubspot.com"</em>). 
+            </p>
+            <div class="p-2 rounded bg-[var(--card)] border border-[var(--border)] text-[11px] text-[var(--muted-foreground)]">
+              ⚡ An AI agent searches developer docs in real-time, extracts requirements, and creates a fresh guide on the fly.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Architecture Flowchart -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-4">Flowchart: How the User Experience Works</h3>
+        <div class="overflow-x-auto pb-2">
+          <svg viewBox="0 0 850 200" class="w-full min-w-[700px] text-xs font-medium">
+            <defs>
+              <marker id="arrow2" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--muted-foreground)" />
+              </marker>
+            </defs>
+
+            <!-- User input -->
+            <rect x="20" y="70" width="140" height="60" rx="10" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="90" y="95" text-anchor="middle" fill="var(--foreground)" font-weight="600" font-size="12">Developer Input</text>
+            <text x="90" y="113" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Selects or enters app</text>
+
+            <!-- Branch Split -->
+            <line x1="160" y1="100" x2="220" y2="50" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow2)"/>
+            <line x1="160" y1="100" x2="220" y2="150" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow2)"/>
+
+            <!-- Path A: In Library -->
+            <rect x="230" y="20" width="160" height="60" rx="10" fill="rgba(99, 102, 241, 0.08)" stroke="rgba(99, 102, 241, 0.3)" stroke-width="1.5"/>
+            <text x="310" y="45" text-anchor="middle" fill="rgb(129, 140, 248)" font-weight="600" font-size="12">App Is In Library</text>
+            <text x="310" y="63" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Instant pre-baked guide</text>
+
+            <!-- Path B: Live Generation -->
+            <rect x="230" y="120" width="160" height="60" rx="10" fill="rgba(16, 185, 129, 0.08)" stroke="rgba(16, 185, 129, 0.3)" stroke-width="1.5"/>
+            <text x="310" y="145" text-anchor="middle" fill="#10b981" font-weight="600" font-size="12">Unknown App / URL</text>
+            <text x="310" y="163" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Live Agent triggers search</text>
+
+            <line x1="390" y1="50" x2="450" y2="85" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow2)"/>
+            <line x1="390" y1="150" x2="450" y2="115" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow2)"/>
+
+            <!-- The Guide Output Component -->
+            <rect x="460" y="25" width="370" height="150" rx="12" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="645" y="50" text-anchor="middle" fill="var(--foreground)" font-weight="700" font-size="13">The Structured Shareable Guide</text>
+            
+            <!-- Sub-boxes inside Guide -->
+            <rect x="475" y="65" width="165" height="45" rx="6" fill="var(--card)" stroke="var(--border)" stroke-width="1"/>
+            <text x="557" y="83" text-anchor="middle" fill="var(--foreground)" font-size="11" font-weight="600">⏱️ Effort & Timeline</text>
+            <text x="557" y="98" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Difficulty + Wait days</text>
+
+            <rect x="650" y="65" width="165" height="45" rx="6" fill="var(--card)" stroke="var(--border)" stroke-width="1"/>
+            <text x="732" y="83" text-anchor="middle" fill="var(--foreground)" font-size="11" font-weight="600">⚠️ Gotchas & Nuances</text>
+            <text x="732" y="98" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">DNS, Videos, Paid tiers</text>
+
+            <rect x="475" y="118" width="165" height="45" rx="6" fill="var(--card)" stroke="var(--border)" stroke-width="1"/>
+            <text x="557" y="136" text-anchor="middle" fill="var(--foreground)" font-size="11" font-weight="600">🤖 Agent vs 👤 Human</text>
+            <text x="557" y="151" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Who does what step</text>
+
+            <rect x="650" y="118" width="165" height="45" rx="6" fill="var(--card)" stroke="var(--border)" stroke-width="1"/>
+            <text x="732" y="136" text-anchor="middle" fill="var(--foreground)" font-size="11" font-weight="600">🛡️ Evidence & Limits</text>
+            <text x="732" y="151" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Verified vs doc-supported</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Point-by-point cross-reference -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Point-by-Point De-Jargonizer: "Your Assignment"</h3>
+
+        <!-- Ref 2.1 & 2.2 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Ref 2.1 & 2.2</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Actionable guidance & unblocking</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-indigo-500 pl-3">
+            "Build a working experience that gives developers and agent builders clear, actionable guidance for setting up an OAuth app and getting it approved. A developer should know where to start, what to do next, how much time and effort to expect, and how to proceed when they hit a blocker."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Your app must not just give abstract explanations; it needs concrete steps (e.g., "Step 1: Go to console.cloud.google.com -> Create Project -> OAuth Consent Screen. Step 2: Add scope 'https://mail.google.com'"). If they hit a blocker like "Verification Required", give them the workaround or exact path forward.
+          </div>
+        </div>
+
+        <!-- Ref 2.3, 2.4, 2.5, 2.6 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Ref 2.3, 2.4, 2.5 & 2.6</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Catalog + Live Agent Investigation Flow</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-indigo-500 pl-3">
+            "The goal is a library of ready-to-use guides for 100 apps... A developer should also be able to submit the name or website... An agent should investigate that app and generate a shareable guide in real time... For this take-home, demonstrate a few varied apps and this live generation flow. You do not need to produce all 100 guides."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> 
+            Build a small working set of pre-baked guides (3 to 5 apps with distinct difficulty profiles) AND an interactive "search/submit" flow where typing any new app triggers an AI agent that searches live docs and outputs a guide in the same format.
+          </div>
+        </div>
+
+        <!-- Ref 2.7 (The 4 Guide Pillars) -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Ref 2.7</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">The 4 Key Answers Every Guide Must Deliver</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-indigo-500 pl-3">
+            "A developer using your result should understand:<br>
+            - How easy or difficult it is to get their OAuth app ready for use.<br>
+            - The likely time and effort involved, including any wait for approval.<br>
+            - The requirements and nuances that could affect their setup.<br>
+            - What an agent can do for them and where they need to take over."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Every guide card must have these 4 clear visual callouts:
+            <ul class="list-disc pl-5 mt-1 space-y-1 text-xs text-[var(--muted-foreground)]">
+              <li><strong>Difficulty Badge:</strong> E.g. Easy (15m), Medium (2 days), Hard (3 weeks).</li>
+              <li><strong>Time & Approval Wait:</strong> Split into <em>Active Setup Time</em> (hands on keyboard) vs <em>Review Wait Time</em> (waiting for human approval).</li>
+              <li><strong>Gotchas / Requirements:</strong> E.g. "Requires paid workspace", "Requires HTTPS callback", "Requires public privacy policy URL".</li>
+              <li><strong>Agent vs Human Boundary:</strong> Exactly what code/agent can automate (e.g. creating app via CLI/API) vs what requires human action (e.g. 2FA, credit card, recording screencast).</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Ref 2.8, 2.9, 2.10 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Ref 2.8, 2.9 & 2.10</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Agent investigation & truthfulness standard</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-indigo-500 pl-3">
+            "Use agents to investigate and attempt as much of the setup process as practical... Be clear about what you tested, what sources support, and what remains uncertain. You decide the approach, format, and implementation. The result should be useful enough for a developer to follow and share without you explaining it."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Don't make the AI hallucinate with fake 100% confidence. If the agent couldn't verify whether an enterprise plan is required, explicitly label it: <em>"Uncertain - Docs do not specify pricing tier requirement."</em> Evaluators love intellectual honesty and clear evidence badges.
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- TAB 3: START BY UNDERSTANDING THE PROBLEM -->
+    <section id="tab-content-context" class="tab-pane hidden space-y-6">
+
+      <!-- Core Context Card -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-lg">💡</div>
+          <div>
+            <h2 class="text-lg font-bold text-[var(--foreground)]">The Technical Root: Managed Auth vs. Custom OAuth App</h2>
+            <p class="text-xs text-[var(--muted-foreground)]">Why Composio's documentation was referenced</p>
+          </div>
+        </div>
+
+        <p class="text-sm leading-relaxed text-[var(--foreground)] mb-4">
+          In agent platforms like Composio, developers have two ways to connect tools:
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-400 text-xs uppercase tracking-wider">Option A: Managed Auth</span>
+              <span class="badge bg-emerald-500/10 text-emerald-500 text-[10px]">Instant / 0 Setup</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)]">
+              The platform (Composio) provides their own pre-verified OAuth app. When users click connect, it says <em>"Composio wants access to your Google Calendar"</em>.
+            </p>
+            <p class="text-xs text-[var(--foreground)]">
+              <strong>Pros:</strong> Zero setup time, instant development.<br>
+              <strong>Cons:</strong> Shows third-party branding; enterprises often reject it.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-indigo-400 text-xs uppercase tracking-wider">Option B: Custom OAuth App</span>
+              <span class="badge bg-amber-500/10 text-amber-500 text-[10px]">The Hard Path</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)]">
+              The developer creates their own app with the provider. When users click connect, it says <em>"YourCompany Assistant wants access"</em>.
+            </p>
+            <p class="text-xs text-[var(--foreground)]">
+              <strong>Pros:</strong> White-labeled, full enterprise trust.<br>
+              <strong>Cons:</strong> The developer must navigate the maze of verification, scopes, and waiting.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flowchart: Managed vs Custom Path -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-4">Flowchart: Where Developers Make the Strategic Decision</h3>
+        <div class="overflow-x-auto pb-2">
+          <svg viewBox="0 0 850 170" class="w-full min-w-[700px] text-xs font-medium">
+            <defs>
+              <marker id="arrow3" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--muted-foreground)" />
+              </marker>
+            </defs>
+
+            <!-- Start Decision -->
+            <rect x="20" y="55" width="160" height="60" rx="10" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="100" y="80" text-anchor="middle" fill="var(--foreground)" font-weight="600" font-size="12">Dev Connects App</text>
+            <text x="100" y="98" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Via Composio / Agent Tool</text>
+
+            <line x1="180" y1="85" x2="250" y2="45" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow3)"/>
+            <line x1="180" y1="85" x2="250" y2="125" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow3)"/>
+
+            <!-- Route 1: Managed -->
+            <rect x="260" y="15" width="220" height="60" rx="10" fill="rgba(16, 185, 129, 0.08)" stroke="rgba(16, 185, 129, 0.3)" stroke-width="1.5"/>
+            <text x="370" y="40" text-anchor="middle" fill="#10b981" font-weight="600" font-size="12">Composio Managed Auth</text>
+            <text x="370" y="58" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Use platform's verified client ID</text>
+
+            <line x1="480" y1="45" x2="550" y2="45" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow3)"/>
+
+            <rect x="560" y="20" width="250" height="50" rx="8" fill="var(--content)" stroke="var(--border)" stroke-width="1"/>
+            <text x="685" y="42" text-anchor="middle" fill="var(--foreground)" font-size="11">Ready immediately, but third-party branding</text>
+            <text x="685" y="58" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">(Not viable for many production B2B products)</text>
+
+            <!-- Route 2: Custom -->
+            <rect x="260" y="95" width="220" height="60" rx="10" fill="rgba(245, 158, 11, 0.08)" stroke="rgba(245, 158, 11, 0.3)" stroke-width="1.5"/>
+            <text x="370" y="120" text-anchor="middle" fill="#f59e0b" font-weight="600" font-size="12">Bring Your Own OAuth App</text>
+            <text x="370" y="138" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Must create in provider console</text>
+
+            <line x1="480" y1="125" x2="550" y2="125" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow3)"/>
+
+            <rect x="560" y="100" width="250" height="50" rx="8" fill="rgba(239, 68, 68, 0.1)" stroke="rgba(239, 68, 68, 0.3)" stroke-width="1"/>
+            <text x="685" y="122" text-anchor="middle" fill="#ef4444" font-weight="700" font-size="11">Hits The Setup Wall</text>
+            <text x="685" y="138" text-anchor="middle" fill="var(--foreground)" font-size="10">Needs your guide to avoid getting stuck!</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Point-by-point cross-reference -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Point-by-Point De-Jargonizer: "Start by Understanding"</h3>
+
+        <!-- Ref 3.1 & 3.2 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-amber-500/10 text-amber-500 border border-amber-500/20">Ref 3.1 & 3.2</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Provider OAuth App & Managed Auth Link</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-amber-500 pl-3">
+            "Understand what a provider OAuth app is and how it relates to a developer's integration and their users' connections. The managed OAuth app directory is a good starting point."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> The prompt explicitly points to Composio's managed auth docs. This is your cue: Composio handles auth for developers, but when developers need their *own* app credentials, they are on their own. Your solution is the bridge for that second scenario.
+          </div>
+        </div>
+
+        <!-- Ref 3.3 & 3.4 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-amber-500/10 text-amber-500 border border-amber-500/20">Ref 3.3 & 3.4</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Product decisions & focused scope</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-amber-500 pl-3">
+            "We care about what you learn and the product decisions you make from it. Choose a focused scope and explain why it addresses the developer's problem."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Don't try to build an entire identity platform in 6 hours. Make clear trade-offs (e.g. "We focused on B2B SaaS integrations like GitHub, Slack, and Google because they represent 80% of agent use cases and have contrasting verification hurdles"). Explain <em>why</em> you chose that slice in your README.
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- TAB 4: SHOW US THAT IT WORKS -->
+    <section id="tab-content-submission" class="tab-pane hidden space-y-6">
+
+      <!-- Submission Criteria Card -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">🚀</div>
+          <div>
+            <h2 class="text-lg font-bold text-[var(--foreground)]">How You Are Evaluated & Submission Checklist</h2>
+            <p class="text-xs text-[var(--muted-foreground)]">What they actually care about seeing</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-1">
+            <div class="font-bold text-emerald-400">1. Working Live Experience</div>
+            <p class="text-[var(--muted-foreground)]">A deployed link or easily runnable repo where they can test varied apps and run a live generation query.</p>
+          </div>
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-1">
+            <div class="font-bold text-indigo-400">2. Honest Grounding</div>
+            <p class="text-[var(--muted-foreground)]">Showing what was verified vs. what came from docs vs. what could not be tested without paid/verified accounts.</p>
+          </div>
+          <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--content)]/30 space-y-1">
+            <div class="font-bold text-amber-400">3. Tight 6–8h Scope</div>
+            <p class="text-[var(--muted-foreground)]">No over-engineering. Clear README with decisions, limitations, and setup steps. No API keys committed.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flowchart: Submission Pipeline -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-4">Flowchart: The Evaluator's Test Run</h3>
+        <div class="overflow-x-auto pb-2">
+          <svg viewBox="0 0 850 160" class="w-full min-w-[700px] text-xs font-medium">
+            <defs>
+              <marker id="arrow4" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--muted-foreground)" />
+              </marker>
+            </defs>
+
+            <!-- Step 1 -->
+            <rect x="20" y="45" width="160" height="70" rx="10" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="100" y="73" text-anchor="middle" fill="var(--foreground)" font-weight="600" font-size="12">1. Opens Your Link</text>
+            <text x="100" y="93" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Views pre-baked apps</text>
+
+            <line x1="180" y1="80" x2="230" y2="80" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow4)"/>
+
+            <!-- Step 2 -->
+            <rect x="240" y="45" width="170" height="70" rx="10" fill="var(--content)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="325" y="73" text-anchor="middle" fill="var(--foreground)" font-weight="600" font-size="12">2. Types Random App</text>
+            <text x="325" y="93" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">e.g. "Linear" or "Spotify"</text>
+
+            <line x1="410" y1="80" x2="460" y2="80" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow4)"/>
+
+            <!-- Step 3 -->
+            <rect x="470" y="45" width="170" height="70" rx="10" fill="rgba(99, 102, 241, 0.08)" stroke="rgba(99, 102, 241, 0.3)" stroke-width="1.5"/>
+            <text x="555" y="73" text-anchor="middle" fill="rgb(129, 140, 248)" font-weight="600" font-size="12">3. Watches Agent Live</text>
+            <text x="555" y="93" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Gathers specs & gotchas</text>
+
+            <line x1="640" y1="80" x2="690" y2="80" stroke="var(--border)" stroke-width="2" marker-end="url(#arrow4)"/>
+
+            <!-- Step 4 -->
+            <rect x="700" y="45" width="130" height="70" rx="10" fill="rgba(16, 185, 129, 0.1)" stroke="rgba(16, 185, 129, 0.4)" stroke-width="2"/>
+            <text x="765" y="73" text-anchor="middle" fill="#10b981" font-weight="700" font-size="12">4. Reads README</text>
+            <text x="765" y="93" text-anchor="middle" fill="var(--foreground)" font-size="11">Decisions & Limits</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Point-by-point cross-reference -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Point-by-Point De-Jargonizer: "Show Us That It Works"</h3>
+
+        <!-- Ref 4.1 & 4.2 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Ref 4.1 & 4.2</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Testing with Varied Apps & Live Generation</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-emerald-500 pl-3">
+            "Demonstrate the experience on a few real apps with different setup challenges. Be ready for us to submit an unfamiliar app and watch the agent generate its guide live."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> Your demo must show contrasting cases: one instant app (Slack), one strict app (Google sensitive scopes), and one web API with quirks (GitHub/Twitter). Then, when the evaluator enters a totally new app, your agent must run in real time and output the guide.
+          </div>
+        </div>
+
+        <!-- Ref 4.3 & 4.4 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Ref 4.3 & 4.4</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Grounding & Error Transparency</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-emerald-500 pl-3">
+            "Check a sample of the guidance against real sources or setup attempts. Show what you learned, corrected, or could not verify."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> In your guide and README, cite exact links to developer docs. If you tested creating an app yourself and ran into a surprise requirement (like needing an organization account), explicitly document that you discovered and corrected it!
+          </div>
+        </div>
+
+        <!-- Ref 4.5, 4.6, 4.7, 4.8 -->
+        <div class="p-4 rounded-xl bg-[var(--content)]/40 border border-[var(--border)] space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Ref 4.5, 4.6, 4.7 & 4.8</span>
+            <span class="text-xs font-semibold text-[var(--foreground)]">Submission Requirements, Timebox & Guardrails</span>
+          </div>
+          <div class="text-xs italic text-[var(--muted-foreground)] border-l-2 border-emerald-500 pl-3">
+            "Submit a link to the working experience and a source repository. Include a short README with setup instructions, your key decisions, and limitations... Budget 6 to 8 hours. A focused working slice is enough. You do not need paid accounts, completed provider approvals, or a production-ready product. Keep credentials out of the submission."
+          </div>
+          <div class="text-xs text-[var(--foreground)] pt-1">
+            <strong>What it actually means:</strong> 
+            <ul class="list-disc pl-5 mt-1 space-y-1 text-xs text-[var(--muted-foreground)]">
+              <li><strong>Time limit:</strong> Strictly respect 6–8 hours. Focus on UI usability + live agent execution rather than building complex database layers.</li>
+              <li><strong>Deliverables:</strong> GitHub repo + deployed link (e.g. Vercel/Render) or single-command local run instructions.</li>
+              <li><strong>Zero Cost Required:</strong> You are NOT expected to pay for enterprise developer accounts or wait 3 weeks for Google to approve anything.</li>
+              <li><strong>Security:</strong> Store all API keys in <code>.env</code> and keep it in <code>.gitignore</code>.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Footer Summary Card -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
+      <div>
+        <strong>Ready to proceed?</strong> We can start architecting the exact tech stack (Next.js/React + FastAPI/Node + Gemini agent) whenever you are ready.
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-[var(--foreground)] font-semibold">All 4 Sections Ready</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      // Hide all panels
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      // Show selected panel
+      document.getElementById('tab-content-' + tabId).classList.remove('hidden');
+
+      // Update button styles
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-[var(--primary)]', 'text-[var(--primary-foreground)]', 'shadow-sm');
+        btn.classList.add('bg-[var(--content)]', 'text-[var(--muted-foreground)]');
+      });
+
+      const activeBtn = document.getElementById('btn-' + tabId);
+      activeBtn.classList.add('bg-[var(--primary)]', 'text-[var(--primary-foreground)]', 'shadow-sm');
+      activeBtn.classList.remove('bg-[var(--content)]', 'text-[var(--muted-foreground)]');
+    }
+  </script>
+
+</body>
+</html>
