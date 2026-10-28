@@ -2,7 +2,8 @@
 
 **Will connecting an app take 15 minutes or 6 weeks?** Before an AI agent can act for your users, you need an OAuth app with each provider — and sometimes the provider's approval. This tool gives developers an evidence-graded setup guide for any app: how hard it is, hands-on time vs. waiting time, what can block approval, what an agent can do for you vs. where you take over, and what is still uncertain.
 
-- **Curated library** — six reference apps chosen to cover every friction archetype: GitHub, Slack, Notion, Gmail, Salesforce, LinkedIn.
+- **Curated library** — seven reference apps chosen to cover every friction archetype: GitHub, Slack, Notion, Gmail, Salesforce, LinkedIn, Zoom.
+- **Example live runs** — real output of the live agent (Linear: rated *Moderate*; Plausible Analytics: *No public OAuth*) in `data/examples/`, so a fresh deployment shows what the agent produces without spending tokens.
 - **Live investigator** — type any app name or website; an agent researches it, probes its live OAuth endpoints, and publishes a shareable guide in ~1–2 minutes.
 
 ## Quickstart
@@ -70,7 +71,12 @@ Curated guides were researched from official docs by research agents, probed by 
 | `INVESTIGATOR_MOCK` | `0` | `1` = canned responses, no API calls |
 | `GUIDES_DIR` | `data/generated` (`/tmp/oauth-guides` on Vercel) | Where live guides and research checkpoints are stored |
 
-**Deploying (Vercel):** import the repo, set `GEMINI_API_KEY` as an environment variable in the project settings (never in the repo), deploy. The investigate route allows up to 300 s. Live guides on serverless are stored in `/tmp` per instance — use the portable link to share them durably.
+**Deploying (Vercel):**
+1. vercel.com/new → *Import Git Repository* → pick this repo. Framework preset: Next.js (auto-detected); keep the default build settings.
+2. *Environment Variables*: add `GEMINI_API_KEY` (optional — without it the library and examples still work and visitors can paste their own key in Settings). Never commit it.
+3. Deploy. Every push to `main` redeploys.
+
+The investigate route allows up to 300 s. Live guides generated on Vercel are stored in `/tmp` per instance — use the portable link to share them durably.
 
 ## Limitations
 
