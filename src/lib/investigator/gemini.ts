@@ -1,6 +1,8 @@
 import { GoogleGenAI, ThinkingLevel, type GenerateContentResponse } from "@google/genai";
 
 export const DEFAULT_MODEL = "gemini-3.8-flash";
+// Used when the configured model is overloaded (503) even after a retry.
+export const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash";
 
 export type Usage = { calls: number; inputTokens: number; outputTokens: number; searchQueries: number };
 
@@ -17,12 +19,13 @@ export interface LLM {
   grounded(prompt: string, opts: { system: string; urls?: string[]; label: string }): Promise<GroundedResult>;
   structured(prompt: string, opts: { system: string; schema: unknown; label: string }): Promise<string>;
   usage: Usage;
+  onFallback?: (model: string) => void;
 }
 
 export class LLMError extends Error {
   constructor(
     message: string,
-    readonly kind: "auth" | "quota" | "model" | "timeout" | "other",
+    readonly kind: "auth" | "quota" | "billing" | "model" | "timeout" | "other",
   ) {
     super(message);
   }
@@ -37,8 +40,14 @@ function classify(e: unknown): LLMError {
   if (status === 401 || status === 403 || /API key not valid|PERMISSION_DENIED|API_KEY_INVALID/i.test(msg)) {
     return new LLMError("The Gemini API key was rejected. Check GEMINI_API_KEY or the key you entered.", "auth");
   }
+  if (/check your plan and billing/i.test(msg)) {
+    return new LLMError(
+      "This Gemini key has no quota for this request (Google: \"check your plan and billing\"). Google Search grounding needs a billing-enabled project.",
+      "billing",
+    );
+  }
   if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)) {
-    return new LLMError("Gemini quota or rate limit reached. Try again later or use another key.", "quota");
+    return new LLMError("Gemini rate limit reached. Try again in a minute or use another key.", "quota");
   }
   if (status === 404 || /not found|is not supported/i.test(msg)) {
     return new LLMError(`Model not available for this key: ${msg.slice(0, 200)}`, "model");
@@ -51,6 +60,7 @@ const retryable = (e: LLMError, status?: number) => e.kind === "quota" || (statu
 export class GeminiLLM implements LLM {
   private ai: GoogleGenAI;
   usage: Usage = { calls: 0, inputTokens: 0, outputTokens: 0, searchQueries: 0 };
+  onFallback?: (model: string) => void;
 
   constructor(
     apiKey: string,
@@ -79,6 +89,7 @@ export class GeminiLLM implements LLM {
     timeoutMs: number,
   ): Promise<GenerateContentResponse> {
     let config = initialConfig;
+    let fellBack = false;
     for (let attempt = 0; ; attempt++) {
       try {
         const res = await this.ai.models.generateContent({
@@ -93,6 +104,14 @@ export class GeminiLLM implements LLM {
         return res;
       } catch (e) {
         const err = classify(e);
+        const status = (e as { status?: number })?.status;
+        // Overloaded model: after the plain retry, switch to the fallback model once.
+        if (attempt >= 1 && status === 503 && !fellBack && model !== FALLBACK_MODEL) {
+          model = FALLBACK_MODEL;
+          fellBack = true;
+          this.onFallback?.(FALLBACK_MODEL);
+          continue;
+        }
         // One retry for transient failures only; auth/model errors fail fast so no tokens are wasted.
         if (attempt === 0 && retryable(err, (e as { status?: number })?.status)) {
           await new Promise((r) => setTimeout(r, 2500));

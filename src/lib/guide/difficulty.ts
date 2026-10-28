@@ -16,7 +16,7 @@ const BASE: Record<Archetype, DifficultyLevel> = {
   tenant_scoped: 3,
   scope_verification: 3,
   partner_gated: 4,
-  no_public_oauth: 4,
+  no_public_oauth: 4, // never shown as a rating — see verdictOf
 };
 
 const HEAVY_FLAGS: Flag[] = ["security_assessment", "partner_application"];
@@ -34,11 +34,39 @@ export function difficultyOf(guide: Pick<GuideContent, "classification" | "effor
   return level;
 }
 
-export function evidenceCounts(guide: Guide) {
+export function evidenceCounts(guide: object) {
   const counts = { tested: 0, source: 0, community: 0, uncertain: 0 };
   JSON.stringify(guide, (key, value) => {
     if (key === "evidence" && value?.status) counts[value.status as keyof typeof counts]++;
     return value;
   });
   return counts;
+}
+
+// Share of claims backed by our own tests or official docs (community reports count half).
+export function evidenceCoverage(guide: object): number {
+  const c = evidenceCounts(guide);
+  const total = c.tested + c.source + c.community + c.uncertain;
+  return total ? (c.tested + c.source + 0.5 * c.community) / total : 0;
+}
+
+export const LOW_COVERAGE = 0.4;
+
+export function coverageLabel(coverage: number): string {
+  if (coverage >= 0.7) return "Well evidenced";
+  if (coverage >= LOW_COVERAGE) return "Partially evidenced";
+  return "Low evidence";
+}
+
+export type Verdict =
+  | { kind: "rated"; level: DifficultyLevel }
+  | { kind: "unrated"; coverage: number }
+  | { kind: "not_available" };
+
+// A difficulty rating is only shown when the evidence can carry it; "no public OAuth" is not a difficulty at all.
+export function verdictOf(guide: Guide): Verdict {
+  if (guide.classification.archetype === "no_public_oauth") return { kind: "not_available" };
+  const coverage = evidenceCoverage(guide);
+  if (coverage < LOW_COVERAGE) return { kind: "unrated", coverage };
+  return { kind: "rated", level: difficultyOf(guide) };
 }

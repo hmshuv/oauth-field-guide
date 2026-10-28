@@ -208,8 +208,8 @@ export function discoveryCandidates(authorizeUrl: string | null, explicit: strin
 }
 
 export type ProbeTargets = {
-  consoleUrl: string;
-  docsUrl: string;
+  consoleUrl: string | null;
+  docsUrl: string | null;
   authorizeUrl: string | null;
   tokenUrl: string | null;
   discoveryUrl: string | null;
@@ -247,7 +247,7 @@ export async function runProbes(t: ProbeTargets, onProbe?: (p: Probe) => void) {
   const ids = { authorize: "", token: "", console: "", docs: "" };
   if (authorizeUrl) tasks.push(probeAuthorize((ids.authorize = nextId()), authorizeUrl));
   if (tokenUrl) tasks.push(probeToken((ids.token = nextId()), tokenUrl));
-  tasks.push(probePage((ids.console = nextId()), t.consoleUrl));
+  if (t.consoleUrl) tasks.push(probePage((ids.console = nextId()), t.consoleUrl));
   if (t.docsUrl && t.docsUrl !== t.consoleUrl) tasks.push(probePage((ids.docs = nextId()), t.docsUrl));
   for (const p of await Promise.all(tasks)) emit(p);
 

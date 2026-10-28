@@ -2,8 +2,8 @@
 
 import { compressToEncodedURIComponent } from "lz-string";
 import { useMemo } from "react";
-import { DIFFICULTY_INFO, difficultyOf, evidenceCounts } from "@/lib/guide/difficulty";
-import { formatDays, formatMinutes, guideToMarkdown } from "@/lib/guide/format";
+import { coverageLabel, DIFFICULTY_INFO, evidenceCounts, evidenceCoverage, verdictOf } from "@/lib/guide/difficulty";
+import { formatDays, formatMinutes, guideToMarkdown, providerEmail } from "@/lib/guide/format";
 import type { Guide } from "@/lib/guide/schema";
 import {
   ARCHETYPE_INFO,
@@ -14,7 +14,7 @@ import {
   PHASE_INFO,
   STEP_PHASES,
 } from "@/lib/guide/taxonomy";
-import { ArchetypeBadge, DifficultyBadge, EvidenceBadge, EvidencePill, OwnerPill, SourcesContext } from "./badges";
+import { ArchetypeBadge, EvidenceBadge, EvidencePill, OwnerPill, SourcesContext, VerdictBadge } from "./badges";
 import { CopyButton } from "./copy-button";
 
 const SECTIONS = [
@@ -27,12 +27,15 @@ const SECTIONS = [
   ["reference", "Quick reference"],
   ["handoff", "Hand off to an agent"],
   ["verification", "What we verified"],
+  ["ask", "Ask the provider"],
   ["sources", "Sources"],
 ] as const;
 
 export function GuideView({ guide, shareable = true }: { guide: Guide; shareable?: boolean }) {
   const sources = useMemo(() => new Map(guide.sources.map((s) => [s.id, s])), [guide.sources]);
-  const level = difficultyOf(guide);
+  const verdict = verdictOf(guide);
+  const coverage = evidenceCoverage(guide);
+  const email = providerEmail(guide);
   const counts = evidenceCounts(guide);
   const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
   const live = guide.origin.kind === "live";
@@ -85,10 +88,26 @@ export function GuideView({ guide, shareable = true }: { guide: Guide; shareable
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <DifficultyBadge level={level} size="lg" />
+              <VerdictBadge verdict={verdict} size="lg" />
               <ArchetypeBadge archetype={guide.classification.archetype} />
-              <span className="text-xs text-muted">{DIFFICULTY_INFO[level].description}</span>
+              <span className="text-xs text-muted">
+                {verdict.kind === "rated"
+                  ? DIFFICULTY_INFO[verdict.level].description
+                  : verdict.kind === "not_available"
+                    ? "Third-party developers can't use OAuth here — see the alternative below."
+                    : "Too little of this guide is backed by docs or tests to rate it."}
+              </span>
             </div>
+            {verdict.kind === "unrated" && (
+              <div className="mt-4 rounded-lg border p-3 text-sm" style={{ borderColor: "var(--ev-uncertain)", background: "var(--ev-uncertain-soft)" }}>
+                <span className="font-semibold" style={{ color: "var(--ev-uncertain)" }}>
+                  Low evidence — {Math.round(coverage * 100)}% of claims are backed.
+                </span>{" "}
+                The provider&apos;s documentation is thin or missing, so most of this guide is inferred. Treat it as a starting
+                point and {email ? <a href="#ask" className="underline">ask the provider</a> : "contact the provider"} before
+                committing to a launch date.
+              </div>
+            )}
             <p className="mt-4 text-base leading-relaxed">{guide.tldr}</p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -115,6 +134,7 @@ export function GuideView({ guide, shareable = true }: { guide: Guide; shareable
                     </EvidencePill>
                   </span>
                 ))}
+                <span className="text-muted">· {coverageLabel(coverage)} ({Math.round(coverage * 100)}% backed)</span>
                 <a href="#verification" className="text-muted underline-offset-2 hover:underline">
                   How we graded this →
                 </a>
@@ -210,7 +230,7 @@ export function GuideView({ guide, shareable = true }: { guide: Guide; shareable
                     {guide.scopes.map((s, i) => (
                       <tr key={i} className="border-t border-line align-top">
                         <td className="py-2 pr-3">
-                          <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs break-all">{s.scope}</code>
+                          <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap">{s.scope}</code>
                         </td>
                         <td className="py-2 pr-3 text-muted">{s.purpose}</td>
                         <td className="py-2 pr-3">
@@ -327,6 +347,35 @@ export function GuideView({ guide, shareable = true }: { guide: Guide; shareable
             </ul>
           </Section>
 
+          {/* Ask the provider */}
+          {email && (
+            <Section id="ask" title="Ask the provider" subtitle="When the docs run out: a ready-to-send message built from the open questions above.">
+              <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
+                <dt className="text-muted">Send to</dt>
+                <dd className="min-w-0 break-words">
+                  {guide.providerContact?.url ? (
+                    <a href={guide.providerContact.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                      {email.to}
+                    </a>
+                  ) : (
+                    email.to
+                  )}
+                  {guide.providerContact && (
+                    <span className="ml-2 align-middle">
+                      <EvidenceBadge evidence={guide.providerContact.evidence} />
+                    </span>
+                  )}
+                </dd>
+                <dt className="text-muted">Subject</dt>
+                <dd>{email.subject}</dd>
+              </dl>
+              <div className="relative mt-3">
+                <pre className="max-h-96 overflow-auto rounded-lg bg-surface-2 p-4 text-xs leading-relaxed whitespace-pre-wrap">{email.body}</pre>
+                <CopyButton text={`Subject: ${email.subject}\n\n${email.body}`} label="Copy message" className="no-print absolute right-2 top-2" />
+              </div>
+            </Section>
+          )}
+
           {/* Sources */}
           <Section id="sources" title="Sources">
             <ol className="space-y-1.5 text-sm">
@@ -439,6 +488,15 @@ function StepList({ guide }: { guide: Guide }) {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium">{s.title}</span>
+                        {s.basis === "assumed" && (
+                          <span
+                            className="rounded-full border border-dashed px-2 py-0.5 text-[11px] font-medium"
+                            style={{ color: "var(--ev-uncertain)", borderColor: "var(--ev-uncertain)" }}
+                            title="Not described in this provider's docs — inferred from how OAuth usually works"
+                          >
+                            Assumed
+                          </span>
+                        )}
                         <OwnerPill owner={s.owner} />
                         <EvidenceBadge evidence={s.evidence} />
                       </div>
@@ -464,14 +522,18 @@ function StepList({ guide }: { guide: Guide }) {
   );
 }
 
-function RefRow({ label, url, mono }: { label: string; url: string; mono?: boolean }) {
+function RefRow({ label, url, mono }: { label: string; url: string | null; mono?: boolean }) {
   return (
     <>
       <dt className="text-muted">{label}</dt>
       <dd className="min-w-0">
-        <a href={url} target="_blank" rel="noreferrer" className={`break-all text-accent hover:underline ${mono ? "font-mono text-xs" : ""}`}>
-          {url}
-        </a>
+        {url ? (
+          <a href={url} target="_blank" rel="noreferrer" className={`break-all text-accent hover:underline ${mono ? "font-mono text-xs" : ""}`}>
+            {url}
+          </a>
+        ) : (
+          <span className="text-[var(--ev-uncertain)]">Not found in the provider&apos;s documentation</span>
+        )}
       </dd>
     </>
   );

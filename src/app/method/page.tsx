@@ -7,7 +7,8 @@ export const metadata = { title: "How it works — OAuth Field Guide" };
 
 const STAGE_DETAIL: Record<string, string> = {
   preflight: "Validates the API key and model with a metadata call that costs no tokens, so a bad key never wastes a run.",
-  identify: "Resolves the name or URL to a product, its official domains and its OAuth docs (one grounded search call).",
+  identify:
+    "Resolves the name or URL to a product, its official domains and its OAuth docs (one grounded search call). If it isn't sure the app offers OAuth, one availability check runs first; if no public OAuth is found, the agent writes a short guide about the alternative (API keys, partner programs) instead of paying for full research.",
   research:
     "Three parallel grounded research tracks: registration mechanics, the review/verification path, and field reports & recent policy changes. The mechanics track also reads the official docs page directly.",
   sources:
@@ -87,7 +88,33 @@ export default function MethodPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold tracking-tight">5. Evidence grades</h2>
+        <h2 className="text-xl font-semibold tracking-tight">5. When documentation is thin or missing</h2>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted">
+          <li>
+            <strong className="text-ink">Evidence coverage</strong> — the share of claims backed by our tests or official docs
+            (community reports count half). Below 40%, the guide shows <em>Unrated · low evidence</em> and a warning instead
+            of a difficulty rating.
+          </li>
+          <li>
+            <strong className="text-ink">Assumed steps</strong> — steps inferred from standard OAuth practice rather than the
+            provider&apos;s docs are tagged <em>Assumed</em> and can never be graded better than Uncertain.
+          </li>
+          <li>
+            <strong className="text-ink">No invented URLs</strong> — console/docs/endpoint URLs are left empty when research
+            didn&apos;t find them, and URLs that never appeared in a source are listed as open questions.
+          </li>
+          <li>
+            <strong className="text-ink">No public OAuth</strong> is a verdict of its own, not a difficulty level.
+          </li>
+          <li>
+            <strong className="text-ink">Ask the provider</strong> — open questions become a ready-to-send message to the
+            provider&apos;s developer support or partner channel.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold tracking-tight">6. Evidence grades</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {EVIDENCE_STATUSES.map((s) => (
             <div key={s} className="rounded-lg border border-line p-3">
@@ -104,7 +131,7 @@ export default function MethodPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold tracking-tight">6. The live investigator</h2>
+        <h2 className="text-xl font-semibold tracking-tight">7. The live investigator</h2>
         <ol className="mt-4 space-y-3">
           {STAGES.map((s, i) => (
             <li key={s.key} className="flex gap-3">
@@ -119,7 +146,7 @@ export default function MethodPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold tracking-tight">7. Limitations</h2>
+        <h2 className="text-xl font-semibold tracking-tight">8. Limitations</h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted">
           <li>No agent creates real OAuth apps or submits reviews; console-only facts are source-backed at best.</li>
           <li>Review timelines are rarely published; estimates are conservative ranges and marked uncertain where unsupported.</li>

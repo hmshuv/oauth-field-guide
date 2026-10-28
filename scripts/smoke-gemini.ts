@@ -46,6 +46,13 @@ async function fakeGenerate(req: Req) {
   requests.push(req);
   if (req.config.responseMimeType === "application/json") return response(synthesized);
   if (req.contents.includes("A developer typed")) return response("```json\n" + JSON.stringify(identity) + "\n```", { webSearchQueries: ["notion oauth"] });
+  if (req.contents.includes("VERDICT: OAUTH_AVAILABLE")) {
+    return response("VERDICT: NO_OAUTH\n- Only personal API keys are documented.", {
+      webSearchQueries: ["notion smoke oauth"],
+      groundingChunks: [{ web: { uri: "https://developers.notion.com/reference/intro", title: "developers.notion.com" } }],
+      groundingSupports: [{ segment: { text: "Only personal API keys are documented." }, groundingChunkIndices: [0] }],
+    });
+  }
   const text = "- Public connections use OAuth 2.0 with refresh tokens.\n- Developers report the page picker confuses users.";
   return response(text, {
     webSearchQueries: ["notion oauth public connection", "notion refresh token"],
@@ -89,7 +96,36 @@ async function main() {
   return { events, structured };
 }
 
+// Second scenario: identify is unsure OAuth exists and the availability check says no — only that one
+// research call should run, and synthesis must be told it's in limited mode.
+async function limited() {
+  requests.length = 0;
+  Object.assign(identity, { appName: "Notion Smoke NoOAuth", offersOAuth: "unclear" });
+  const { GeminiLLM } = await import("../src/lib/investigator/gemini");
+  const { investigate } = await import("../src/lib/investigator/pipeline");
+  const llm = new GeminiLLM("fake-key-for-offline-smoke-test-000000");
+  (llm as any).ai = { models: { get: async () => ({ name: "models/x" }), generateContent: fakeGenerate } };
+  const events: any[] = [];
+  await investigate("notion-smoke-nooauth", llm, (e) => events.push(e), { force: true });
+  const research = requests.filter((r) => r.config.tools && !r.contents.includes("A developer typed"));
+  const synth = requests.find((r) => r.config.responseMimeType === "application/json");
+  const err = events.find((e) => e.type === "error");
+  if (err) console.error("✗ limited: pipeline error", err.message);
+  if (research.length !== 1) console.error(`✗ limited: expected 1 research call, got ${research.length}`);
+  else console.log("✓ limited: availability check only (3 research calls skipped)");
+  if (!synth?.contents.includes("LIMITED RESEARCH MODE")) console.error("✗ limited: synthesis not told about limited mode");
+  else console.log("✓ limited: synthesis prompt in limited mode");
+  if (err || research.length !== 1 || !synth?.contents.includes("LIMITED RESEARCH MODE")) process.exitCode = 1;
+  const g = events.find((e) => e.type === "done")?.guide;
+  if (g) console.log(`  origin note: ${g.origin.note}`);
+}
+
 async function run() {
+  await full();
+  await limited();
+}
+
+async function full() {
   const { events, structured } = await main();
   const done = events.find((e) => e.type === "done");
   if (!structured.length) {

@@ -9,7 +9,9 @@ import {
 } from "../store";
 import { LLMError, type GroundedResult, type LLM } from "./gemini";
 import {
+  AVAILABILITY_BRIEF,
   identifyPrompt,
+  parseAvailability,
   repairPrompt,
   RESEARCH_BRIEFS,
   RESEARCH_SYSTEM,
@@ -28,7 +30,10 @@ type Checkpoint = {
   identity: Identity;
   sources: Source[];
   notes: { label: string; text: string }[];
+  mode?: "full" | "limited";
 };
+
+type Track = { brief: { key: string; label: string }; result: GroundedResult };
 
 const CACHE_MS = 14 * 24 * 3600 * 1000;
 const CHECKPOINT_MS = 24 * 3600 * 1000;
@@ -49,6 +54,7 @@ export async function investigate(
   };
   const done = (s: StageKey, detail?: string) => emit({ type: "stage", stage: s, status: "done", detail });
   const log = (message: string) => emit({ type: "log", stage, message });
+  llm.onFallback = (model) => log(`${llm.model} is overloaded — switched to ${model} for this call.`);
 
   try {
     // Free short-circuits first: curated library and previously generated guides cost no tokens.
@@ -90,15 +96,34 @@ export async function investigate(
 
       begin("research");
       log(`Use case assumed: ${identity.assumedUseCase}`);
-      const results = await Promise.all(
-        RESEARCH_BRIEFS.map(async (brief) => {
-          const urls = brief.key === "mechanics" && /^https:\/\//.test(identity.developerDocsUrl) ? [identity.developerDocsUrl] : [];
-          const r = await llm.grounded(brief.prompt(identity), { system: RESEARCH_SYSTEM, urls, label: brief.key });
-          log(`${brief.label}: ${r.queries.length} searches, ${r.chunks.length} sources${r.queries.length ? ` — e.g. “${r.queries[0]}”` : ""}`);
-          return { brief, result: r };
-        }),
-      );
-      done("research", `${results.reduce((n, r) => n + r.result.queries.length, 0)} searches across ${results.length} research tracks`);
+      let mode: "full" | "limited" = "full";
+      const results: Track[] = [];
+      // When identify isn't sure OAuth exists, one cheap check decides whether full research is worth paying for.
+      if (identity.offersOAuth !== "yes") {
+        log(`Identify reported OAuth: ${identity.offersOAuth} — checking availability before full research.`);
+        const r = await llm.grounded(AVAILABILITY_BRIEF.prompt(identity), { system: RESEARCH_SYSTEM, label: AVAILABILITY_BRIEF.key });
+        results.push({ brief: AVAILABILITY_BRIEF, result: r });
+        const verdict = parseAvailability(r.text);
+        if (verdict !== "available") mode = "limited";
+        log(
+          verdict === "available"
+            ? "Availability check: a public OAuth flow exists — running full research."
+            : `Availability check: ${verdict === "none" ? "no public OAuth" : "OAuth could not be confirmed"} — writing a short guide instead (3 research calls saved).`,
+        );
+      }
+      if (mode === "full") {
+        results.push(
+          ...(await Promise.all(
+            RESEARCH_BRIEFS.map(async (brief) => {
+              const urls = brief.key === "mechanics" && /^https:\/\//.test(identity.developerDocsUrl) ? [identity.developerDocsUrl] : [];
+              const r = await llm.grounded(brief.prompt(identity), { system: RESEARCH_SYSTEM, urls, label: brief.key });
+              log(`${brief.label}: ${r.queries.length} searches, ${r.chunks.length} sources${r.queries.length ? ` — e.g. “${r.queries[0]}”` : ""}`);
+              return { brief, result: r };
+            }),
+          )),
+        );
+      }
+      done("research", `${results.reduce((n, r) => n + r.result.queries.length, 0)} searches across ${results.length} research track${results.length > 1 ? "s" : ""}`);
       emit({ type: "usage", usage: { ...llm.usage } });
 
       begin("sources");
@@ -107,7 +132,7 @@ export async function investigate(
       done("sources", `${sources.length} sources · ${official} official`);
       if (!official) log("No official sources were found — the guide will lean on community reports and uncertainty.");
 
-      checkpoint = { identity, sources, notes };
+      checkpoint = { identity, sources, notes, mode };
       await saveCheckpoint(querySlug, checkpoint).catch(() => {});
     }
 
@@ -119,6 +144,7 @@ export async function investigate(
     begin("verify");
     const { content: graded, downgraded } = enforceEvidence(content, checkpoint.sources);
     const slug = slugify(checkpoint.identity.appName) || querySlug;
+    const nSources = `${checkpoint.sources.length} web source${checkpoint.sources.length === 1 ? "" : "s"}`;
     let guide: Guide = Guide.parse({
       ...graded,
       schemaVersion: 1,
@@ -128,7 +154,10 @@ export async function investigate(
         generatedAt: new Date().toISOString(),
         model: llm.model,
         durationMs: null,
-        note: `Investigated live by the agent from ${checkpoint.sources.length} web sources.`,
+        note:
+          checkpoint.mode === "limited"
+            ? `Short investigation: no public OAuth flow was found or confirmed, so only an availability check was run (${nSources}).`
+            : `Investigated live by the agent from ${nSources}.`,
       },
       sources: checkpoint.sources,
       probes: [],
@@ -147,6 +176,7 @@ export async function investigate(
       emit({ type: "probe", probe });
       log(`${probe.ok ? "✓" : "⚠"} ${probe.kind} ${hostOf(probe.target)} — ${probe.observed}`);
     });
+    flagUnsourcedUrls(guide, checkpoint);
     const tested = guide.probes.filter((p) => p.ok).length;
     done("verify", `${tested}/${guide.probes.length} probes confirmed · ${guide.corrections.length} corrections`);
 
@@ -232,7 +262,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R
 
 async function buildSources(
   identity: Identity,
-  results: { brief: (typeof RESEARCH_BRIEFS)[number]; result: GroundedResult }[],
+  results: Track[],
   onSource: (s: Source) => void,
 ) {
   const unique = [...new Set(results.flatMap((r) => r.result.chunks.map((c) => c.uri)))];
@@ -288,11 +318,12 @@ async function buildSources(
 export function geminiSchema(): unknown {
   const schema = z.toJSONSchema(GuideContent) as Record<string, unknown>;
   delete schema.$schema;
-  return schema;
+  // "default" isn't among Gemini's documented schema keywords; defaults are applied when we parse.
+  return JSON.parse(JSON.stringify(schema, (key, value) => (key === "default" ? undefined : value)));
 }
 
 async function synthesize(cp: Checkpoint, llm: LLM, log: (m: string) => void): Promise<GuideContent> {
-  const prompt = synthesisPrompt(cp.identity, cp.sources, cp.notes);
+  const prompt = synthesisPrompt(cp.identity, cp.sources, cp.notes, cp.mode ?? "full");
   let raw: string;
   try {
     raw = await llm.structured(prompt, { system: SYNTHESIS_SYSTEM, schema: geminiSchema(), label: "synthesize" });
@@ -354,9 +385,44 @@ export function enforceEvidence(content: GuideContent, sources: Source[]) {
   c.steps.forEach((s) => {
     fix(`step "${s.title}"`, s.evidence);
     if (s.url && !/^https?:\/\//.test(s.url)) s.url = null;
+    // An assumed step can't be better than uncertain, and an uncited uncertain step is an assumption.
+    if (s.basis === "assumed" && s.evidence.status !== "uncertain") {
+      downgraded.push(`step "${s.title}": ${s.evidence.status} → uncertain (assumed, not documented)`);
+      s.evidence.status = "uncertain";
+    }
+    if (s.evidence.status === "uncertain" && !s.evidence.sources.length) s.basis = "assumed";
+    if (s.basis === "assumed" && !/standard OAuth|assumed/i.test(s.evidence.note ?? "")) {
+      s.evidence.note = [s.evidence.note, "Assumed from standard OAuth practice — not found in this provider's docs."].filter(Boolean).join(" ");
+    }
   });
   c.gotchas.forEach((g) => fix(`gotcha "${g.title}"`, g.evidence));
+  if (c.providerContact) fix("provider contact", c.providerContact.evidence);
+  for (const key of ["consoleUrl", "docsUrl", "authorizeUrl", "tokenUrl", "discoveryUrl"] as const) {
+    const u = c.quickRef[key];
+    if (u && !/^https:\/\//.test(u)) c.quickRef[key] = null;
+  }
   return { content: c, downgraded };
+}
+
+// URLs the model supplied that never appeared in the research are likely recalled or invented.
+function flagUnsourcedUrls(guide: Guide, cp: Checkpoint) {
+  const material = (cp.notes.map((n) => n.text).join("\n") + "\n" + cp.sources.map((s) => s.url).join("\n")).toLowerCase();
+  const bare = (u: string) => u.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const checks = [
+    ["Developer console URL", guide.quickRef.consoleUrl],
+    ["OAuth docs URL", guide.quickRef.docsUrl],
+    ["Authorize URL", guide.quickRef.authorizeUrl],
+    ["Token URL", guide.quickRef.tokenUrl],
+  ] as const;
+  for (const [label, url] of checks) {
+    if (!url || material.includes(bare(url))) continue;
+    const probe = guide.probes.find((p) => p.target === url);
+    guide.uncertainties.push({
+      question: `${label} (${url}) does not appear in any research source`,
+      why: `The model supplied it from general knowledge${probe ? `; our probe ${probe.ok ? "found it reachable, which doesn't prove it's the right page" : "could not confirm it"}` : ""}.`,
+      howToResolve: "Confirm it on the provider's own site before relying on it.",
+    });
+  }
 }
 
 function hostOf(u: string): string {

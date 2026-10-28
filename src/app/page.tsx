@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LibrarySearch, type GuideCard } from "@/components/library-search";
-import { difficultyOf } from "@/lib/guide/difficulty";
+import { verdictOf } from "@/lib/guide/difficulty";
 import { formatDays, formatMinutes } from "@/lib/guide/format";
 import type { Guide } from "@/lib/guide/schema";
 import { ARCHETYPE_INFO, ARCHETYPES } from "@/lib/guide/taxonomy";
@@ -14,7 +14,7 @@ function toCard(g: Guide): GuideCard {
     appName: g.appName,
     category: g.category,
     archetype: g.classification.archetype,
-    level: difficultyOf(g),
+    verdict: verdictOf(g),
     firstToken: `${formatMinutes(g.effort.firstToken.activeMinutes)} · ${formatDays(g.effort.firstToken.waitDays)}`,
     production: `${formatMinutes(g.effort.production.activeMinutes)} · ${formatDays(g.effort.production.waitDays)}`,
     tldr: g.tldr,

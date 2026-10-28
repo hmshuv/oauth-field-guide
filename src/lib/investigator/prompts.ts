@@ -92,6 +92,27 @@ Research what surprises developers when they build an OAuth integration with ${i
   },
 ] as const;
 
+// Cheap gate run before the full research when identify isn't sure OAuth exists:
+// one grounded call decides between the full pipeline and a short "no public OAuth" guide.
+export const AVAILABILITY_BRIEF = {
+  key: "availability",
+  label: "Does a public OAuth flow exist?",
+  prompt: (id: Identity) => `${context(id)}
+
+Determine whether ${id.appName} lets third-party developers use OAuth so that the developer's customers can connect their own ${id.appName} accounts.
+1. Is there a documented OAuth 2.0 (or OAuth 1.0a) authorization flow for third-party/public apps? Give the official URL.
+2. If not, what do third-party integrations use instead (API keys, personal access tokens, service accounts, a partner-only program, nothing)? Where does a user create such a key?
+3. Is OAuth available only to partners, enterprise plans, or on request? How does one ask (partner program, support form, sales)?
+4. The official developer support or contact channel (URL or email) for integration questions.
+Start your answer with exactly one line: "VERDICT: OAUTH_AVAILABLE", "VERDICT: NO_OAUTH" or "VERDICT: UNCLEAR".`,
+};
+
+export function parseAvailability(text: string): "available" | "none" | "unclear" {
+  const m = text.match(/VERDICT:\s*(OAUTH_AVAILABLE|NO_OAUTH|UNCLEAR)/i);
+  if (!m) return "unclear";
+  return m[1].toUpperCase() === "OAUTH_AVAILABLE" ? "available" : m[1].toUpperCase() === "NO_OAUTH" ? "none" : "unclear";
+}
+
 const archetypes = ARCHETYPES.map((a) => `- ${a}: ${ARCHETYPE_INFO[a].description} (e.g. ${ARCHETYPE_INFO[a].examples})`).join("\n");
 const flags = FLAGS.map((f) => `- ${f}: ${FLAG_INFO[f].hint}`).join("\n");
 const reasons = HUMAN_REASONS.map((r) => `- ${r}: ${HUMAN_REASON_INFO[r]}`).join("\n");
@@ -124,6 +145,11 @@ Steps (6–12, in order) — phases: prepare, register, configure, test, review,
 ${reasons}
 - agentHelp: concretely what an agent can do for that step (null if nothing).
 
+Missing documentation:
+- Each step has basis "documented" (this provider's docs or sources describe it) or "assumed" (you inferred it from how OAuth usually works). Assumed steps must use evidence status "uncertain" and say so in the note. Never present an assumed step as documented.
+- consoleUrl / docsUrl / authorizeUrl / tokenUrl: use null when the notes don't contain them. Do not construct plausible-looking URLs.
+- providerContact: the official channel for integration questions (developer support form, partner program, forum, email) if the notes name one, else null.
+
 Also write:
 - tldr: two decision-useful sentences.
 - gotchas (3–8) with severity blocker/warning/info and a mitigation each.
@@ -132,12 +158,21 @@ Also write:
 - nextAction: the one thing to do right now.
 Keep text tight and specific; no marketing language.`;
 
+const LIMITED_MODE = `LIMITED RESEARCH MODE
+Our availability check found no public OAuth flow for third parties, or could not confirm one, so only that check was run.
+- Use archetype "no_public_oauth" unless the notes clearly show a public OAuth flow.
+- tldr and nextAction must say plainly that OAuth is not available (or unconfirmed) and what the realistic alternative is (e.g. users paste an API key, a partner program, or contacting the provider).
+- steps describe the alternative path (e.g. how a user creates an API key and how your app stores it) and how to ask the provider for OAuth access. Keep 3–7 steps.
+- effort: estimates for the alternative path; null where unknown.
+- Put every open question (does OAuth exist on some plan? partner-only? roadmap?) in uncertainties.`;
+
 export function synthesisPrompt(
   id: Identity,
   sources: { id: string; title: string; url: string; kind: string }[],
   notes: { label: string; text: string }[],
+  mode: "full" | "limited" = "full",
 ) {
-  return `PRODUCT
+  return `${mode === "limited" ? LIMITED_MODE + "\n\n" : ""}PRODUCT
 ${JSON.stringify(id, null, 2)}
 
 SOURCES (id · kind · title · url)

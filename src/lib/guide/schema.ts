@@ -54,8 +54,8 @@ export const GuideContent = z.object({
     production: Milestone.describe("Until any customer can connect without warnings or caps"),
   }),
   quickRef: z.object({
-    consoleUrl: z.string().describe("Where the developer registers the app"),
-    docsUrl: z.string().describe("Main official OAuth documentation page"),
+    consoleUrl: z.string().nullable().describe("Where the developer registers the app; null if not found in the research"),
+    docsUrl: z.string().nullable().describe("Main official OAuth documentation page; null if none exists"),
     authorizeUrl: z.string().nullable(),
     tokenUrl: z.string().nullable(),
     discoveryUrl: z.string().nullable().describe("OIDC/OAuth discovery document if one exists"),
@@ -92,6 +92,10 @@ export const GuideContent = z.object({
       owner: z.enum(OWNERS),
       humanReason: z.enum(HUMAN_REASONS).nullable(),
       agentHelp: z.string().nullable().describe("What a coding/AI agent can do for this step"),
+      basis: z
+        .enum(["documented", "assumed"])
+        .default("documented")
+        .describe("'assumed' when the step comes from standard OAuth practice, not this provider's docs"),
       evidence: Evidence,
     }),
   ),
@@ -124,6 +128,15 @@ export const GuideContent = z.object({
     ),
   }),
   nextAction: z.string().describe("The one thing the developer should do right now"),
+  providerContact: z
+    .object({
+      channel: z.string().describe("Where to ask the provider, e.g. 'Developer support form', 'partner program inbox'"),
+      url: z.string().nullable().describe("Contact URL or mailto: link if found in the research"),
+      evidence: Evidence,
+    })
+    .nullable()
+    .default(null)
+    .describe("How to reach the provider about unanswered questions; null if no channel was found"),
 });
 export type GuideContent = z.infer<typeof GuideContent>;
 

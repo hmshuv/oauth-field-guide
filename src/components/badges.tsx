@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { DIFFICULTY_INFO, type DifficultyLevel } from "@/lib/guide/difficulty";
+import { DIFFICULTY_INFO, type DifficultyLevel, type Verdict } from "@/lib/guide/difficulty";
 import type { Evidence, Source } from "@/lib/guide/schema";
 import { ARCHETYPE_INFO, EVIDENCE_INFO, type Archetype, type EvidenceStatus } from "@/lib/guide/taxonomy";
 
@@ -102,6 +102,21 @@ export function OwnerPill({ owner }: { owner: "agent" | "human" | "shared" }) {
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${map.cls}`}>
       <span aria-hidden>{map.glyph}</span>
       {map.label}
+    </span>
+  );
+}
+
+// Difficulty when the evidence supports a rating; otherwise an explicit "unrated" or "not available".
+export function VerdictBadge({ verdict, size = "sm" }: { verdict: Verdict; size?: "sm" | "lg" }) {
+  if (verdict.kind === "rated") return <DifficultyBadge level={verdict.level} size={size} />;
+  const cls = `inline-flex items-center gap-1.5 rounded-full border border-dashed font-semibold ${size === "lg" ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs"}`;
+  return verdict.kind === "not_available" ? (
+    <span className={cls} style={{ color: "var(--muted)", borderColor: "var(--muted)" }} title="No public OAuth flow for third-party developers">
+      ⊘ No public OAuth
+    </span>
+  ) : (
+    <span className={cls} style={{ color: "var(--ev-uncertain)", borderColor: "var(--ev-uncertain)" }} title="Not enough evidence to rate difficulty">
+      ? Unrated · low evidence
     </span>
   );
 }

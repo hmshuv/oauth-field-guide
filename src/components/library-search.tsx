@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { DifficultyLevel } from "@/lib/guide/difficulty";
+import type { Verdict } from "@/lib/guide/difficulty";
 import type { Archetype } from "@/lib/guide/taxonomy";
-import { ArchetypeBadge, DifficultyBadge } from "./badges";
+import { ArchetypeBadge, VerdictBadge } from "./badges";
 
 export type GuideCard = {
   slug: string;
   appName: string;
   category: string;
   archetype: Archetype;
-  level: DifficultyLevel;
+  verdict: Verdict;
   firstToken: string;
   production: string;
   tldr: string;
@@ -122,7 +122,7 @@ function Card({ g }: { g: GuideCard }) {
             {g.live && " · live"}
           </div>
         </div>
-        <DifficultyBadge level={g.level} />
+        <VerdictBadge verdict={g.verdict} />
       </div>
       <p className="mt-3 line-clamp-3 text-sm text-muted">{g.tldr}</p>
       <div className="mt-auto pt-4">

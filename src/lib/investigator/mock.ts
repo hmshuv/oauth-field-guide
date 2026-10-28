@@ -1,4 +1,5 @@
-// Offline stand-in for Gemini, enabled with INVESTIGATOR_MOCK=1. It exercises the full pipeline
+// Offline stand-in for Gemini, enabled with INVESTIGATOR_MOCK=1. Queries containing "nooauth"
+// simulate an app without public OAuth, exercising the short "limited" path. It exercises the full pipeline
 // (streaming, source resolution, schema validation, evidence enforcement, real endpoint probes)
 // without spending tokens. Its guide content is canned and clearly labelled as a mock run.
 import type { GuideContent } from "../guide/schema";
@@ -10,6 +11,7 @@ export class MockLLM implements LLM {
   model = "mock (no API calls)";
   usage: Usage = { calls: 0, inputTokens: 0, outputTokens: 0, searchQueries: 0 };
   private name = "Linear";
+  private noOAuth = false;
 
   async preflight() {
     await wait(200);
@@ -20,6 +22,7 @@ export class MockLLM implements LLM {
     this.usage.calls++;
     if (opts.label === "identify") {
       const q = prompt.match(/typed: "([^"]+)"/)?.[1] ?? "Linear";
+      this.noOAuth = /nooauth/i.test(q);
       this.name = q.replace(/^https?:\/\//, "").replace(/\..*$/, "");
       this.name = this.name.charAt(0).toUpperCase() + this.name.slice(1);
       return {
@@ -29,8 +32,8 @@ export class MockLLM implements LLM {
           officialDomains: ["linear.app"],
           developerDocsUrl: "https://linear.app/developers/oauth-2-0-authentication",
           category: "Project management",
-          offersOAuth: "yes",
-          oauthNotes: "OAuth 2.0 authorization code flow for third-party apps.",
+          offersOAuth: this.noOAuth ? "unclear" : "yes",
+          oauthNotes: this.noOAuth ? "Only API keys are mentioned." : "OAuth 2.0 authorization code flow for third-party apps.",
           assumedUseCase: "AI agent reads and creates issues on the user's behalf",
           ambiguous: false,
           alternatives: [],
@@ -38,6 +41,14 @@ export class MockLLM implements LLM {
         chunks: [],
         supports: [],
         queries: [`${this.name} OAuth app`],
+      };
+    }
+    if (opts.label === "availability") {
+      return {
+        text: "VERDICT: NO_OAUTH\n- MOCK NOTE: Only personal API keys are documented.",
+        chunks: [{ uri: "https://linear.app/developers", title: "Linear Developers" }],
+        supports: [{ text: "Only personal API keys are documented.", chunkIndices: [0] }],
+        queries: [`${this.name} oauth availability`],
       };
     }
     const text = `- MOCK NOTE: OAuth apps are created in workspace settings under API.\n- MOCK NOTE: Developers report the actor=app mode is useful for agents.`;
@@ -65,7 +76,7 @@ export class MockLLM implements LLM {
       assumedUseCase: "AI agent reads and creates issues on the user's behalf",
       tldr: "MOCK RUN — canned content used to test the pipeline without an API key. Do not rely on it.",
       classification: {
-        archetype: "instant_self_serve",
+        archetype: this.noOAuth ? "no_public_oauth" : "instant_self_serve",
         rationale: "Mock rationale.",
         flags: [
           {
@@ -113,6 +124,18 @@ export class MockLLM implements LLM {
           owner: "human",
           humanReason: "account_login",
           agentHelp: "Mock agent help.",
+          basis: "documented",
+          evidence: { status: "source", sources: ["S1"] },
+        },
+        {
+          phase: "configure",
+          title: "Mock assumed step",
+          detail: "Inferred from standard OAuth practice.",
+          url: null,
+          owner: "agent",
+          humanReason: null,
+          agentHelp: "Mock agent help.",
+          basis: "assumed",
           evidence: { status: "source", sources: ["S1"] },
         },
       ],
@@ -128,6 +151,7 @@ export class MockLLM implements LLM {
       uncertainties: [{ question: "Mock question?", why: "Mock.", howToResolve: "Mock." }],
       agentHandoff: { prompt: "Mock prompt.", artifacts: [] },
       nextAction: "Mock next action.",
+      providerContact: { channel: "Mock developer support form", url: "https://linear.app/contact", evidence: { status: "source", sources: ["S1"] } },
     };
     return JSON.stringify(content);
   }

@@ -1,4 +1,4 @@
-import { DIFFICULTY_INFO, difficultyOf } from "./difficulty";
+import { coverageLabel, DIFFICULTY_INFO, evidenceCoverage, verdictOf, type Verdict } from "./difficulty";
 import type { Evidence, Guide } from "./schema";
 import {
   ARCHETYPE_INFO,
@@ -47,14 +47,52 @@ export function guideUrlPath(slug: string) {
   return `/guides/${slug}`;
 }
 
+export function verdictText(v: Verdict): string {
+  if (v.kind === "not_available") return "Not available via OAuth";
+  if (v.kind === "unrated") return "Unrated — not enough evidence";
+  return DIFFICULTY_INFO[v.level].label;
+}
+
+// Lower-case the first word for use mid-sentence, unless it's an acronym ("AI agent …").
+const sentenceCase = (t: string) =>
+  (/^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t).replace(/\.$/, "");
+
+// Our own tooling notes aren't questions for the provider.
+const isProviderQuestion = (q: string) => !/^Probe:|does not appear in any research source/.test(q);
+
+// A ready-to-send message to the provider, built from the guide's open questions — the developer's
+// next step when documentation runs out.
+export function providerEmail(g: Guide): { to: string; subject: string; body: string } | null {
+  const questions = g.uncertainties.filter((u) => isProviderQuestion(u.question)).slice(0, 6);
+  if (!questions.length) return null;
+  const to = g.providerContact
+    ? `${g.providerContact.channel}${g.providerContact.url ? ` — ${g.providerContact.url}` : ""}`
+    : `No contact channel found — check ${g.quickRef.docsUrl ?? g.website} for developer support`;
+  const body = [
+    `Hi ${g.appName} developer support team,`,
+    "",
+    `We're building an integration where ${sentenceCase(g.assumedUseCase)}. Before we register an OAuth app and launch to customers, we couldn't find answers to the following in your documentation:`,
+    "",
+    ...questions.flatMap((u, i) => [`${i + 1}. ${u.question}`, `   (What we found: ${u.why})`]),
+    "",
+    "Could you point us to the right documentation or process — including whether any review or approval is needed before customers outside our own account can connect, and the typical timeline?",
+    "",
+    "Thanks,",
+    "[Your name]",
+    "[Company · website]",
+  ].join("\n");
+  return { to, subject: `OAuth integration questions — ${g.appName}`, body };
+}
+
 // Plain markdown export, so a guide can be pasted into an issue, doc or chat.
 export function guideToMarkdown(g: Guide): string {
-  const level = difficultyOf(g);
+  const verdict = verdictOf(g);
+  const coverage = evidenceCoverage(g);
   const lines: string[] = [];
   lines.push(`# ${g.appName} — OAuth app setup guide`);
   lines.push("");
   lines.push(
-    `**Difficulty:** ${DIFFICULTY_INFO[level].label} · **Archetype:** ${ARCHETYPE_INFO[g.classification.archetype].label} · **Use case:** ${g.assumedUseCase}`,
+    `**Verdict:** ${verdictText(verdict)} · **Archetype:** ${ARCHETYPE_INFO[g.classification.archetype].label} · **Evidence:** ${coverageLabel(coverage)} (${Math.round(coverage * 100)}% backed) · **Use case:** ${g.assumedUseCase}`,
   );
   lines.push("");
   lines.push(`> ${g.tldr}`);
@@ -83,7 +121,7 @@ export function guideToMarkdown(g: Guide): string {
     lines.push(`### ${PHASE_INFO[phase]}`);
     for (const s of steps) {
       const owner = s.owner === "agent" ? "🤖 Agent" : s.owner === "human" ? "👤 You" : "🤝 Shared";
-      lines.push(`${n++}. **${s.title}** (${owner}) ${ev(s.evidence)}`);
+      lines.push(`${n++}. **${s.title}** (${owner})${s.basis === "assumed" ? " **[Assumed — not in provider docs]**" : ""} ${ev(s.evidence)}`);
       lines.push(`   ${s.detail}`);
       if (s.url) lines.push(`   ${s.url}`);
       if (s.humanReason) lines.push(`   _Why a human:_ ${HUMAN_REASON_INFO[s.humanReason]}`);
@@ -102,8 +140,8 @@ export function guideToMarkdown(g: Guide): string {
     lines.push("");
   }
   lines.push(`## Quick reference`);
-  lines.push(`- Console: ${g.quickRef.consoleUrl}`);
-  lines.push(`- Docs: ${g.quickRef.docsUrl}`);
+  lines.push(`- Console: ${g.quickRef.consoleUrl ?? "not found"}`);
+  lines.push(`- Docs: ${g.quickRef.docsUrl ?? "not found"}`);
   if (g.quickRef.authorizeUrl) lines.push(`- Authorize URL: ${g.quickRef.authorizeUrl}`);
   if (g.quickRef.tokenUrl) lines.push(`- Token URL: ${g.quickRef.tokenUrl}`);
   for (const f of g.quickRef.facts) lines.push(`- ${f.label}: ${f.value} ${ev(f.evidence)}`);
@@ -111,6 +149,17 @@ export function guideToMarkdown(g: Guide): string {
   if (g.uncertainties.length) {
     lines.push(`## What we couldn't verify`);
     for (const u of g.uncertainties) lines.push(`- **${u.question}** ${u.why} _To resolve:_ ${u.howToResolve}`);
+    lines.push("");
+  }
+  const email = providerEmail(g);
+  if (email) {
+    lines.push(`## Ask the provider`);
+    lines.push(`To: ${email.to}`);
+    lines.push(`Subject: ${email.subject}`);
+    lines.push("");
+    lines.push("```");
+    lines.push(email.body);
+    lines.push("```");
     lines.push("");
   }
   if (g.probes.length) {
