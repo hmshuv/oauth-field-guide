@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Guide, GuideContent, slugify, type Source } from "../guide/schema";
 import {
+  findExample,
   findInLibrary,
   getGenerated,
   loadCheckpoint,
@@ -70,6 +71,11 @@ export async function investigate(
       const cached = await getGenerated(querySlug);
       if (cached && Date.now() - cached.savedAt.getTime() < CACHE_MS) {
         emit({ type: "done", slug: cached.guide.slug, cached: true, library: false, guide: cached.guide });
+        return;
+      }
+      const example = findExample(query);
+      if (example) {
+        emit({ type: "done", slug: example.slug, cached: true, library: false, guide: example });
         return;
       }
     }

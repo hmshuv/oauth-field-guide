@@ -5,6 +5,8 @@ import path from "node:path";
 import { Guide, slugify } from "./guide/schema";
 
 const LIBRARY_DIR = path.join(process.cwd(), "data/library");
+// Live guides produced by real agent runs, shipped with the repo so a fresh deployment has examples.
+const EXAMPLES_DIR = path.join(process.cwd(), "data/examples");
 // Serverless filesystems are read-only except /tmp; locally we keep generated guides in the repo's data dir.
 const GENERATED_DIR =
   process.env.GUIDES_DIR || (process.env.VERCEL ? "/tmp/oauth-guides" : path.join(process.cwd(), "data/generated"));
@@ -26,6 +28,27 @@ export function getLibrary(): Guide[] {
 
 const safe = (slug: string) => slugify(slug) || "unknown";
 
+let examplesCache: Guide[] | null = null;
+
+export function getExamples(): Guide[] {
+  if (examplesCache && process.env.NODE_ENV === "production") return examplesCache;
+  try {
+    examplesCache = readdirSync(EXAMPLES_DIR)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => Guide.safeParse(JSON.parse(readFileSync(path.join(EXAMPLES_DIR, f), "utf8"))))
+      .filter((r) => r.success)
+      .map((r) => r.data!);
+  } catch {
+    examplesCache = [];
+  }
+  return examplesCache;
+}
+
+export function findExample(query: string): Guide | null {
+  const q = slugify(query);
+  return getExamples().find((g) => g.slug === q || slugify(g.appName) === q) ?? null;
+}
+
 export async function getGenerated(slug: string): Promise<{ guide: Guide; savedAt: Date } | null> {
   const file = path.join(GENERATED_DIR, `${safe(slug)}.json`);
   try {
@@ -46,17 +69,23 @@ export async function listGenerated(): Promise<Guide[]> {
   try {
     const files = (await readdir(GENERATED_DIR)).filter((f) => f.endsWith(".json"));
     const guides = await Promise.all(files.map((f) => getGenerated(f.replace(/\.json$/, ""))));
-    return guides
+    const local = guides
       .filter((g): g is NonNullable<typeof g> => !!g)
       .sort((a, b) => b.savedAt.getTime() - a.savedAt.getTime())
       .map((g) => g.guide);
+    return [...local, ...getExamples().filter((e) => !local.some((g) => g.slug === e.slug))];
   } catch {
-    return [];
+    return getExamples();
   }
 }
 
 export async function getGuide(slug: string): Promise<Guide | null> {
-  return getLibrary().find((g) => g.slug === slug) ?? (await getGenerated(slug))?.guide ?? null;
+  return (
+    getLibrary().find((g) => g.slug === slug) ??
+    (await getGenerated(slug))?.guide ??
+    getExamples().find((g) => g.slug === slug) ??
+    null
+  );
 }
 
 export function findInLibrary(query: string): Guide | null {

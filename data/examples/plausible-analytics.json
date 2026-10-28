@@ -1,0 +1,412 @@
+{
+  "appName": "Plausible Analytics",
+  "website": "https://plausible.io",
+  "category": "Web Analytics",
+  "assumedUseCase": "Retrieve site traffic metrics, pageviews, and visitor stats to generate automated analytics reports or summaries.",
+  "tldr": "Plausible Analytics does not offer OAuth 2.0 for third-party integrations, authenticating API access exclusively via Personal Access Tokens. Users must manually create an API key in their Plausible account settings and provide it to your application.",
+  "classification": {
+    "archetype": "no_public_oauth",
+    "rationale": "Plausible Analytics does not support standard OAuth 2.0 authorization flows for third-party applications. API authentication relies on static Personal Access Tokens passed as HTTP Bearer tokens.",
+    "flags": [
+      {
+        "id": "paid_plan_required",
+        "detail": "Stats API access requires an active Business plan or higher subscription.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S3",
+            "S7",
+            "S8"
+          ],
+          "note": "Plausible documentation notes Stats API access is available on Business plans or higher."
+        }
+      },
+      {
+        "id": "token_lifecycle_gotchas",
+        "detail": "API tokens do not support automated refresh flows. If a key is deleted or revoked by the user, API requests fail until a new key is provided.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1",
+            "S3"
+          ],
+          "note": "API access relies entirely on user-generated static Personal Access Tokens."
+        }
+      }
+    ]
+  },
+  "effort": {
+    "firstToken": {
+      "activeMinutes": {
+        "min": 5,
+        "max": 15
+      },
+      "waitDays": {
+        "min": 0,
+        "max": 0
+      },
+      "conditions": "Developer or user creates a Personal Access Token in Plausible team settings.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S3"
+        ],
+        "note": "API key generation takes seconds inside the Plausible web app."
+      }
+    },
+    "production": {
+      "activeMinutes": {
+        "min": 15,
+        "max": 45
+      },
+      "waitDays": {
+        "min": 0,
+        "max": 0
+      },
+      "conditions": "Application backend securely prompts for, validates, and stores end-user Plausible API keys.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S3"
+        ],
+        "note": "No app submission or review process exists; production delivery depends solely on app client implementation."
+      }
+    }
+  },
+  "quickRef": {
+    "consoleUrl": null,
+    "docsUrl": "https://plausible.io/docs/stats-api",
+    "authorizeUrl": null,
+    "tokenUrl": null,
+    "discoveryUrl": null,
+    "facts": [
+      {
+        "label": "Authentication Method",
+        "value": "Personal Access Token (HTTP Bearer Header)",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1",
+            "S2",
+            "S3"
+          ]
+        }
+      },
+      {
+        "label": "Default Rate Limit",
+        "value": "600 requests per hour",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2",
+            "S3"
+          ]
+        }
+      },
+      {
+        "label": "Required Parameter",
+        "value": "site_id (domain configured in Plausible)",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2",
+            "S3"
+          ]
+        }
+      }
+    ]
+  },
+  "scopes": [],
+  "prerequisites": [
+    {
+      "item": "Plausible Business Plan",
+      "detail": "Access to the Stats API requires a paid Business plan or higher tier.",
+      "owner": "customer_admin",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S3",
+          "S7",
+          "S8"
+        ]
+      }
+    },
+    {
+      "item": "Plausible Team Role",
+      "detail": "The user creating the API key must have an Owner, Admin, Editor, or Billing role on the target Plausible team.",
+      "owner": "customer_admin",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S3"
+        ]
+      }
+    }
+  ],
+  "steps": [
+    {
+      "phase": "prepare",
+      "title": "Verify plan eligibility and site ID",
+      "detail": "Confirm that your Plausible account is on a Business plan or higher and obtain the domain name (site_id) configured in Plausible.",
+      "url": "https://plausible.io/docs/stats-api",
+      "owner": "human",
+      "humanReason": "business_decision",
+      "agentHelp": "Document the site_id format and subscription prerequisite in UI microcopy.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2",
+          "S3",
+          "S7",
+          "S8"
+        ]
+      }
+    },
+    {
+      "phase": "register",
+      "title": "Generate Personal Access Token",
+      "detail": "Log in to Plausible, navigate to account settings -> API Keys, click New API Key, select Stats API or Sites API, and save the token.",
+      "url": "https://plausible.io/docs/api-keys",
+      "owner": "human",
+      "humanReason": "account_login",
+      "agentHelp": "Provide direct step-by-step UI copy for users creating an API key inside Plausible.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S3"
+        ]
+      }
+    },
+    {
+      "phase": "configure",
+      "title": "Configure HTTP Authorization header",
+      "detail": "Store the token securely and send it with every request as an Authorization header ('Authorization: Bearer <TOKEN>').",
+      "url": null,
+      "owner": "agent",
+      "humanReason": null,
+      "agentHelp": "Write HTTP client wrapper code that appends the Bearer token header to all Plausible API calls.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S2",
+          "S3"
+        ]
+      }
+    },
+    {
+      "phase": "test",
+      "title": "Execute test query against Stats API",
+      "detail": "Make a GET request to the aggregate endpoint with the site_id parameter to verify authentication and data retrieval.",
+      "url": "https://plausible.io/docs/stats-api",
+      "owner": "agent",
+      "humanReason": null,
+      "agentHelp": "Generate script to execute test API calls and parse site metric response payloads.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2",
+          "S3"
+        ]
+      }
+    },
+    {
+      "phase": "launch",
+      "title": "Implement rate limit and error handling",
+      "detail": "Handle 600 request/hour rate limits and 401 unauthorized errors gracefully in case the key is invalid or revoked.",
+      "url": null,
+      "owner": "agent",
+      "humanReason": null,
+      "agentHelp": "Implement retry handling, backoff timers, and UI alerts prompting users to update their API key if invalidated.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2",
+          "S3"
+        ]
+      }
+    }
+  ],
+  "gotchas": [
+    {
+      "title": "No Public OAuth 2.0 Flow",
+      "detail": "Plausible does not provide an OAuth flow for seamless end-user authorization. Users must manually paste API keys into your application.",
+      "severity": "blocker",
+      "mitigation": "Design your application onboarding to collect and validate user API keys manually.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S2",
+          "S3"
+        ]
+      }
+    },
+    {
+      "title": "Paid Subscription Required for Stats API",
+      "detail": "Stats API access is restricted to accounts on a Business plan or higher.",
+      "severity": "warning",
+      "mitigation": "Warn users in your setup interface that a paid Plausible Business plan is necessary.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S3",
+          "S7",
+          "S8"
+        ]
+      }
+    },
+    {
+      "title": "Hourly Rate Limit",
+      "detail": "API requests are capped at 600 requests per hour by default.",
+      "severity": "warning",
+      "mitigation": "Cache results where possible or request elevated limits from Plausible for Enterprise users.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2",
+          "S3",
+          "S8"
+        ]
+      }
+    },
+    {
+      "title": "Viewer and Guest Role Restrictions",
+      "detail": "Team members with Viewer or Guest roles cannot generate API keys in Plausible.",
+      "severity": "info",
+      "mitigation": "Inform users that an account with Owner, Admin, Editor, or Billing permissions is required to generate keys.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S3"
+        ]
+      }
+    }
+  ],
+  "uncertainties": [
+    {
+      "question": "Is OAuth 2.0 planned on Plausible's product roadmap?",
+      "why": "Official documentation makes no mention of third-party OAuth 2.0 support or partner integration portals.",
+      "howToResolve": "Contact Plausible support (https://plausible.io/contact) or monitor developer documentation updates."
+    },
+    {
+      "question": "Not searched: developer forums and community reports",
+      "why": "This key has no Google Search grounding, so only the provider's own pages were read. Real-world gotchas reported by developers may be missing.",
+      "howToResolve": "Re-run with a billing-enabled Gemini key, or search the provider's community forum for review and rate-limit issues."
+    }
+  ],
+  "agentHandoff": {
+    "prompt": "Create an API client for Plausible Analytics using Personal Access Token authentication. Store the API key securely, attach it via 'Authorization: Bearer <TOKEN>' headers on all requests, query stats endpoints using the site_id parameter, and handle rate limits (600 req/hr) and HTTP 401 errors.",
+    "artifacts": [
+      {
+        "title": ".env.example",
+        "language": "bash",
+        "content": "PLAUSIBLE_API_KEY=your_personal_access_token_here\nPLAUSIBLE_SITE_ID=example.com"
+      },
+      {
+        "title": "plausibleClient.js",
+        "language": "javascript",
+        "content": "async function fetchPlausibleAggregateStats(siteId, apiKey) {\n  const url = `https://plausible.io/api/v1/stats/aggregate?site_id=${encodeURIComponent(siteId)}&period=30d&metrics=pageviews,visitors,bounce_rate`;\n  const response = await fetch(url, {\n    headers: {\n      'Authorization': `Bearer ${apiKey}`\n    }\n  });\n  if (!response.ok) {\n    throw new Error(`Plausible API error: ${response.status} ${response.statusText}`);\n  }\n  return await response.json();\n}"
+      }
+    ]
+  },
+  "nextAction": "OAuth 2.0 is not available for Plausible Analytics. Have users generate a Personal Access Token in Plausible settings (API Keys) on a Business plan, and collect this API key in your app interface.",
+  "providerContact": {
+    "channel": "Plausible Support / Contact Form",
+    "url": "https://plausible.io/contact",
+    "evidence": {
+      "status": "source",
+      "sources": [
+        "S1",
+        "S7"
+      ]
+    }
+  },
+  "schemaVersion": 1,
+  "slug": "plausible-analytics",
+  "origin": {
+    "kind": "live",
+    "generatedAt": "2026-10-28T01:27:32.286Z",
+    "model": "gemini-3.8-flash",
+    "durationMs": 52325,
+    "note": "Short investigation: no public OAuth flow was found or confirmed, so only an availability check was run (8 official pages read directly (no web search on this key))."
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Site provisioning API reference | Plausible docs",
+      "url": "https://plausible.io/docs/sites-api",
+      "kind": "official"
+    },
+    {
+      "id": "S2",
+      "title": "Stats API v1 reference (legacy) | Plausible docs",
+      "url": "https://plausible.io/docs/stats-api-v1",
+      "kind": "official"
+    },
+    {
+      "id": "S3",
+      "title": "Plausible Stats API reference | Plausible docs",
+      "url": "https://plausible.io/docs/stats-api",
+      "kind": "official"
+    },
+    {
+      "id": "S4",
+      "title": "Plausible: The more accurate alternative to Google Analytics | Plausible Analytics",
+      "url": "https://plausible.io/most-accurate-web-analytics",
+      "kind": "official"
+    },
+    {
+      "id": "S5",
+      "title": "Security Practices | Plausible Analytics",
+      "url": "https://plausible.io/security",
+      "kind": "official"
+    },
+    {
+      "id": "S6",
+      "title": "How to migrate from Google Analytics to Plausible | Plausible Analytics",
+      "url": "https://plausible.io/migrate-from-google-analytics",
+      "kind": "official"
+    },
+    {
+      "id": "S7",
+      "title": "Plausible Analytics Data Studio connector: custom reports, no extra complexity | Plausible Analytics",
+      "url": "https://plausible.io/looker-studio-connector",
+      "kind": "official"
+    },
+    {
+      "id": "S8",
+      "title": "Plausible Analytics | Simple, privacy-friendly Google Analytics alternative",
+      "url": "https://plausible.io",
+      "kind": "official"
+    },
+    {
+      "id": "P1",
+      "title": "Our probe: page check on plausible.io",
+      "url": "https://plausible.io/docs/stats-api",
+      "kind": "probe"
+    }
+  ],
+  "probes": [
+    {
+      "id": "P1",
+      "kind": "page",
+      "target": "https://plausible.io/docs/stats-api",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200; title \"Plausible Stats API reference | Plausible docs\"",
+      "at": "2026-10-28T01:27:32.498Z"
+    }
+  ],
+  "corrections": []
+}

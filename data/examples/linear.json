@@ -1,0 +1,567 @@
+{
+  "appName": "Linear",
+  "website": "https://linear.app",
+  "category": "Project management",
+  "assumedUseCase": "Create, read, update, and manage issues, projects, and cycles on behalf of the user.",
+  "tldr": "Linear OAuth setup is self-serve and fast, supporting instant public distribution without mandatory app review. Workspace admin approval is required for customers installing third-party integrations.",
+  "classification": {
+    "archetype": "self_serve_review_to_scale",
+    "rationale": "Anyone with a Linear account can register an OAuth application immediately. App distribution can be switched to public without prior review, but optional listing in the official Integration Directory requires manual submission and review.",
+    "flags": [
+      {
+        "id": "manual_app_review",
+        "detail": "Listing in the official Linear Integration Directory requires emailing required assets to integrations@linear.app for manual review.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S5"
+          ],
+          "note": "Documented in Integration Directory submission docs."
+        }
+      },
+      {
+        "id": "customer_admin_consent",
+        "detail": "Installing third-party OAuth integrations generally requires workspace admin permissions in Linear.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S5"
+          ],
+          "note": "Documented in Linear integration directory eligibility rules."
+        }
+      },
+      {
+        "id": "redirect_uri_restrictions",
+        "detail": "Redirect URIs must be absolute HTTP or HTTPS URLs, with a minimum of 1 and maximum of 32 unique URIs allowed.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2"
+          ],
+          "note": "Documented in OAuth application manifests specification."
+        }
+      },
+      {
+        "id": "token_lifecycle_gotchas",
+        "detail": "Access tokens expire after 24 hours. Refresh tokens feature a 30-minute grace period allowing request replay in case of network issues.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1"
+          ],
+          "note": "Documented in Linear OAuth 2.0 authentication guide."
+        }
+      },
+      {
+        "id": "marketplace_listing_optional",
+        "detail": "Directory listing is optional; public OAuth apps can connect to any workspace via standard OAuth flow without being listed.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2",
+            "S5"
+          ],
+          "note": "Public distribution flag works independently of directory listing."
+        }
+      }
+    ]
+  },
+  "effort": {
+    "firstToken": {
+      "activeMinutes": {
+        "min": 10,
+        "max": 20
+      },
+      "waitDays": {
+        "min": 0,
+        "max": 0
+      },
+      "conditions": "Register a private OAuth application in Linear workspace settings and execute PKCE flow.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S2"
+        ],
+        "note": "Apps can be registered self-serve in developer settings."
+      }
+    },
+    "production": {
+      "activeMinutes": {
+        "min": 15,
+        "max": 30
+      },
+      "waitDays": {
+        "min": 0,
+        "max": 0
+      },
+      "conditions": "Set distribution mode to public in app settings or manifest to allow any customer workspace admin to authorize.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2"
+        ],
+        "note": "Public distribution takes effect immediately upon updating configuration."
+      }
+    }
+  },
+  "quickRef": {
+    "consoleUrl": "https://linear.app/settings/api/applications/new",
+    "docsUrl": "https://linear.app/developers/oauth-2-0-authentication",
+    "authorizeUrl": "https://linear.app/oauth/authorize",
+    "tokenUrl": "https://api.linear.app/oauth/token",
+    "discoveryUrl": null,
+    "facts": [
+      {
+        "label": "Access Token Expiry",
+        "value": "24 hours (86,399 seconds)",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1"
+          ]
+        }
+      },
+      {
+        "label": "Refresh Token Grace Period",
+        "value": "30 minutes for request replay during network errors",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1"
+          ]
+        }
+      },
+      {
+        "label": "OAuth Request Rate Limit",
+        "value": "5,000 requests per hour per User (or App User)",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S4"
+          ]
+        }
+      },
+      {
+        "label": "GraphQL Complexity Limit",
+        "value": "2,000,000 points per hour (max 10,000 points per query)",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S4"
+          ]
+        }
+      },
+      {
+        "label": "Actor Modes",
+        "value": "actor=user (default) or actor=app",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1",
+            "S3"
+          ]
+        }
+      },
+      {
+        "label": "Endpoints observed live",
+        "value": "Authorize: HTTP 200; serves an HTML login/consent page; → endpoint is live (client validation may happen after login) · Token: HTTP 400; error \"invalid_client: Invalid client: client is invalid\"; → token endpoint is live and rejects a bogus code",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "P1",
+            "P2"
+          ],
+          "note": "Requests sent with a deliberately invalid client id / code; no credentials used."
+        }
+      }
+    ]
+  },
+  "scopes": [
+    {
+      "scope": "read",
+      "purpose": "Read issues, projects, cycles, and other workspace data on behalf of the authorizing entity.",
+      "tier": "basic",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "scope": "write",
+      "purpose": "Create, update, and delete issues, projects, and cycles on behalf of the authorizing entity.",
+      "tier": "basic",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "scope": "issues:create",
+      "purpose": "Scope restricted specifically to creating issues.",
+      "tier": "basic",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    }
+  ],
+  "prerequisites": [
+    {
+      "item": "Linear Workspace Account",
+      "detail": "An active Linear account and workspace to access developer settings and create applications.",
+      "owner": "developer",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "item": "Workspace Admin Permissions for Customers",
+      "detail": "Customer users connecting the integration must hold admin permissions in their Linear workspace.",
+      "owner": "customer_admin",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S5"
+        ]
+      }
+    }
+  ],
+  "steps": [
+    {
+      "phase": "prepare",
+      "title": "Select Actor Mode and Scope Requirements",
+      "detail": "Decide whether the OAuth app will operate on behalf of the authorizing user (actor=user) or as its own bot identity (actor=app). Determine required scopes (read, write).",
+      "url": "https://linear.app/developers/oauth-actor-authorization",
+      "owner": "agent",
+      "humanReason": null,
+      "agentHelp": "Generate configuration templates and specify authorize URL parameters including actor mode.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S3"
+        ]
+      }
+    },
+    {
+      "phase": "register",
+      "title": "Create OAuth Application in Linear Console",
+      "detail": "Navigate to Linear API settings and create a new application or submit an app manifest.",
+      "url": "https://linear.app/settings/api/applications/new",
+      "owner": "human",
+      "humanReason": "account_login",
+      "agentHelp": "Generate app manifest JSON pre-populated with callback URLs and scope definitions.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "phase": "configure",
+      "title": "Configure Redirect URIs and Client Credentials",
+      "detail": "Input absolute HTTP/HTTPS redirect URIs (up to 32) and securely capture the Client ID and Client Secret.",
+      "url": "https://linear.app/settings/api/applications/new",
+      "owner": "shared",
+      "humanReason": "business_decision",
+      "agentHelp": "Draft environment variable structure and store secrets safely in local environment files.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S2"
+        ]
+      }
+    },
+    {
+      "phase": "test",
+      "title": "Implement PKCE OAuth 2.0 Flow and Token Refresh",
+      "detail": "Implement Authorization Code grant with PKCE (S256 code challenge). Support access token expiration (24h) and background refresh logic with 30-minute grace period handling.",
+      "url": "https://linear.app/developers/oauth-2-0-authentication",
+      "owner": "agent",
+      "humanReason": null,
+      "agentHelp": "Write full PKCE authorization code exchange and auto-refresh logic with handling for refresh token replay limits.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "phase": "launch",
+      "title": "Set Distribution to Public",
+      "detail": "Update app settings or manifest field `distribution` to `public` so external Linear workspace admins can connect.",
+      "url": "https://linear.app/developers/oauth-app-manifests",
+      "owner": "shared",
+      "humanReason": "business_decision",
+      "agentHelp": "Update app manifest file to set distribution=public.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2"
+        ]
+      }
+    },
+    {
+      "phase": "review",
+      "title": "Submit for Directory Listing (Optional)",
+      "detail": "If directory visibility is desired, prepare color/monochrome icons and showcase screenshots, then submit via email to integrations@linear.app.",
+      "url": "https://linear.app/developers/integration-directory",
+      "owner": "human",
+      "humanReason": "provider_review",
+      "agentHelp": "Format asset metadata and draft directory submission request email.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S5"
+        ]
+      }
+    },
+    {
+      "phase": "customer",
+      "title": "Customer Workspace Admin Approval",
+      "detail": "Prompt customer Linear workspace admins to complete the OAuth consent flow to install the application in their workspace.",
+      "url": null,
+      "owner": "human",
+      "humanReason": "customer_admin",
+      "agentHelp": "Construct the exact authorization URL parameterized with workspace hints and state tokens.",
+      "basis": "documented",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S5"
+        ]
+      }
+    }
+  ],
+  "gotchas": [
+    {
+      "title": "Refresh Token 30-Minute Grace Period",
+      "detail": "Linear permits replaying refresh token requests within a 30-minute grace period to prevent race conditions during network failures.",
+      "severity": "info",
+      "mitigation": "Do not invalidate new refresh tokens immediately if a duplicate refresh request occurs within 30 minutes.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "title": "GraphQL Query Complexity Limits",
+      "detail": "OAuth apps are capped at 2,000,000 GraphQL complexity points per hour and 10,000 points per individual query in addition to the 5,000 requests/hour limit.",
+      "severity": "warning",
+      "mitigation": "Track rate limit headers (X-RateLimit-Requests-Remaining) and avoid over-fetching deeply nested GraphQL relations.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S4"
+        ]
+      }
+    },
+    {
+      "title": "Workspace Admin Consent Requirement",
+      "detail": "Installing third-party integrations into a Linear workspace requires workspace admin privileges.",
+      "severity": "blocker",
+      "mitigation": "Ensure your onboarding flow explicitly instructs users that a Linear workspace admin must authorize the integration.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S5"
+        ]
+      }
+    },
+    {
+      "title": "App Default Distribution is Private",
+      "detail": "Newly created OAuth apps default to private distribution and cannot be authorized by users in other Linear workspaces.",
+      "severity": "warning",
+      "mitigation": "Set distribution to public in app settings or manifest before launching to external users.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2"
+        ]
+      }
+    }
+  ],
+  "uncertainties": [
+    {
+      "question": "What is the typical review timeline for official Integration Directory submission?",
+      "why": "Linear documentation specifies required directory assets and eligibility criteria, but does not publish SLA or review turnaround times.",
+      "howToResolve": "Contact integrations@linear.app or post in the Linear Slack community #api channel."
+    },
+    {
+      "question": "Not searched: developer forums and community reports",
+      "why": "This key has no Google Search grounding, so only the provider's own pages were read. Real-world gotchas reported by developers may be missing.",
+      "howToResolve": "Re-run with a billing-enabled Gemini key, or search the provider's community forum for review and rate-limit issues."
+    }
+  ],
+  "agentHandoff": {
+    "prompt": "Implement Linear OAuth 2.0 PKCE authentication flow for an AI agent integration using standard HTTP clients. Store access tokens (24h lifespan) and handle automatic refresh token rotation. Use 'read' and 'write' scopes, and support both actor=user and actor=app parameters in the authorization URL.",
+    "artifacts": [
+      {
+        "title": "Environment Variable Template",
+        "language": "dotenv",
+        "content": "LINEAR_CLIENT_ID=\"your_client_id_here\"\nLINEAR_CLIENT_SECRET=\"your_client_secret_here\"\nLINEAR_REDIRECT_URI=\"https://your-domain.com/api/auth/callback/linear\"\nLINEAR_SCOPES=\"read write\"\nLINEAR_ACTOR_MODE=\"user\""
+      },
+      {
+        "title": "Linear OAuth Manifest (Public App)",
+        "language": "json",
+        "content": "{\n  \"name\": \"AI Agent Integration\",\n  \"description\": \"Manages Linear issues, projects, and cycles\",\n  \"distribution\": \"public\",\n  \"developerUrl\": \"https://your-domain.com\",\n  \"redirectUris\": [\n    \"https://your-domain.com/api/auth/callback/linear\"\n  ],\n  \"scopes\": [\n    \"read\",\n    \"write\"\n  ]\n}"
+      }
+    ]
+  },
+  "nextAction": "Create your OAuth app at https://linear.app/settings/api/applications/new and set up your initial PKCE flow.",
+  "providerContact": {
+    "channel": "Linear Integrations Email & Slack Community",
+    "url": null,
+    "evidence": {
+      "status": "source",
+      "sources": [
+        "S4",
+        "S5"
+      ],
+      "note": "Documentation directs listing submissions to integrations@linear.app and community discussions to the #api Slack channel."
+    }
+  },
+  "schemaVersion": 1,
+  "slug": "linear",
+  "origin": {
+    "kind": "live",
+    "generatedAt": "2026-10-28T01:23:29.497Z",
+    "model": "gemini-3.8-flash",
+    "durationMs": 178341,
+    "note": "Investigated live by the agent from 8 official pages read directly (no web search on this key)."
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "title": "OAuth 2.0 authentication – Linear Developers",
+      "url": "https://linear.app/developers/oauth-2-0-authentication",
+      "kind": "official"
+    },
+    {
+      "id": "S2",
+      "title": "OAuth application manifests – Linear Developers",
+      "url": "https://linear.app/developers/oauth-app-manifests",
+      "kind": "official"
+    },
+    {
+      "id": "S3",
+      "title": "OAuth actor authorization – Linear Developers",
+      "url": "https://linear.app/developers/oauth-actor-authorization",
+      "kind": "official"
+    },
+    {
+      "id": "S4",
+      "title": "Rate limiting – Linear Developers",
+      "url": "https://linear.app/developers/rate-limiting",
+      "kind": "official"
+    },
+    {
+      "id": "S5",
+      "title": "Integration Directory – Linear Developers",
+      "url": "https://linear.app/developers/integration-directory",
+      "kind": "official"
+    },
+    {
+      "id": "S6",
+      "title": "Linear – The system for product development",
+      "url": "https://linear.app",
+      "kind": "official"
+    },
+    {
+      "id": "S7",
+      "title": "Linear – The system for product development",
+      "url": "https://linear.app/homepage",
+      "kind": "official"
+    },
+    {
+      "id": "S8",
+      "title": "Linear Developers",
+      "url": "https://linear.app/developers",
+      "kind": "official"
+    },
+    {
+      "id": "P1",
+      "title": "Our probe: authorize check on linear.app",
+      "url": "https://linear.app/oauth/authorize",
+      "kind": "probe"
+    },
+    {
+      "id": "P2",
+      "title": "Our probe: token check on api.linear.app",
+      "url": "https://api.linear.app/oauth/token",
+      "kind": "probe"
+    },
+    {
+      "id": "P3",
+      "title": "Our probe: page check on linear.app",
+      "url": "https://linear.app/settings/api/applications/new",
+      "kind": "probe"
+    },
+    {
+      "id": "P4",
+      "title": "Our probe: page check on linear.app",
+      "url": "https://linear.app/developers/oauth-2-0-authentication",
+      "kind": "probe"
+    }
+  ],
+  "probes": [
+    {
+      "id": "P1",
+      "kind": "authorize",
+      "target": "https://linear.app/oauth/authorize",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200; serves an HTML login/consent page; → endpoint is live (client validation may happen after login)",
+      "at": "2026-10-28T01:23:31.899Z"
+    },
+    {
+      "id": "P2",
+      "kind": "token",
+      "target": "https://api.linear.app/oauth/token",
+      "ok": true,
+      "status": 400,
+      "observed": "HTTP 400; error \"invalid_client: Invalid client: client is invalid\"; → token endpoint is live and rejects a bogus code",
+      "at": "2026-10-28T01:23:32.353Z"
+    },
+    {
+      "id": "P3",
+      "kind": "page",
+      "target": "https://linear.app/settings/api/applications/new",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200; title \"Linear\"",
+      "at": "2026-10-28T01:23:31.993Z"
+    },
+    {
+      "id": "P4",
+      "kind": "page",
+      "target": "https://linear.app/developers/oauth-2-0-authentication",
+      "ok": true,
+      "status": 200,
+      "observed": "HTTP 200",
+      "at": "2026-10-28T01:23:32.983Z"
+    }
+  ],
+  "corrections": []
+}
