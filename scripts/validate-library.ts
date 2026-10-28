@@ -4,8 +4,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { Guide } from "../src/lib/guide/schema";
 
-const dir = path.join(process.cwd(), "data/library");
-const only = process.argv[2];
+// Argument: a slug prefix within data/library, or a path to a single guide file anywhere.
+const arg = process.argv[2];
+const single = arg?.endsWith(".json");
+const dir = single ? path.dirname(path.resolve(arg!)) : path.join(process.cwd(), "data/library");
+const only = single ? path.basename(arg!) : arg;
 let failed = 0;
 
 for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {

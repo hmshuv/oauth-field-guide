@@ -1,13 +1,16 @@
 // Runs the investigator's credential-free probes against every curated guide and writes the
 // results back, so library guides carry the same "Tested" evidence as live ones.
-// Usage: npm run probe [slug]
+// Usage: npm run probe [slug | path/to/guide.json]
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { Guide } from "../src/lib/guide/schema";
 import { probeAndVerify } from "../src/lib/investigator/verify";
 
-const dir = path.join(process.cwd(), "data/library");
-const only = process.argv[2];
+// Argument: a slug prefix within data/library, or a path to a single guide file anywhere.
+const arg = process.argv[2];
+const single = arg?.endsWith(".json");
+const dir = single ? path.dirname(path.resolve(arg!)) : path.join(process.cwd(), "data/library");
+const only = single ? path.basename(arg!) : arg;
 
 async function main() {
 for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
