@@ -71,7 +71,7 @@ export function GuideView({ guide, shareable = true }: { guide: Guide; shareable
                 {live ? (
                   <>
                     <span className="font-medium text-accent">Live investigation</span> · {guide.origin.model} ·{" "}
-                    {new Date(guide.origin.generatedAt).toLocaleDateString()}
+                    {guide.origin.generatedAt.slice(0, 10)}
                   </>
                 ) : (
                   <>

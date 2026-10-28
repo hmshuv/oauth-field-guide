@@ -129,7 +129,7 @@ export function Investigation({ app }: { app: string }) {
         {cached && guide && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3 text-sm">
             <span>
-              Loaded a guide this server generated on {new Date(guide.origin.generatedAt).toLocaleString()} — no tokens spent.
+              Loaded a guide this server generated on {guide.origin.generatedAt.slice(0, 10)} — no tokens spent.
             </span>
             <button type="button" onClick={() => run(true)} className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-surface-2">
               Re-investigate from scratch
