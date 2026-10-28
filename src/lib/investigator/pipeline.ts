@@ -10,6 +10,7 @@ import {
 import { LLMError, type GroundedResult, type LLM } from "./gemini";
 import {
   AVAILABILITY_BRIEF,
+  directResearchPrompt,
   identifyPrompt,
   parseAvailability,
   repairPrompt,
@@ -20,6 +21,7 @@ import {
   type Identity,
 } from "./prompts";
 import { probeAndVerify } from "./verify";
+import { gatherOfficialPages, pagesForPrompt, pagesToSources } from "./crawl";
 import type { InvestigateEvent, StageKey } from "./events";
 
 export { STAGES, type InvestigateEvent, type StageKey } from "./events";
@@ -31,6 +33,7 @@ type Checkpoint = {
   sources: Source[];
   notes: { label: string; text: string }[];
   mode?: "full" | "limited";
+  searchMode?: "grounded" | "direct";
 };
 
 type Track = { brief: { key: string; label: string }; result: GroundedResult };
@@ -54,7 +57,7 @@ export async function investigate(
   };
   const done = (s: StageKey, detail?: string) => emit({ type: "stage", stage: s, status: "done", detail });
   const log = (message: string) => emit({ type: "log", stage, message });
-  llm.onFallback = (model) => log(`${llm.model} is overloaded — switched to ${model} for this call.`);
+  llm.onFallback = (model) => log(`Model unavailable (overloaded or daily quota used up) — trying ${model}.`);
 
   try {
     // Free short-circuits first: curated library and previously generated guides cost no tokens.
@@ -83,7 +86,14 @@ export async function investigate(
       checkpoint.sources.forEach((source) => emit({ type: "source", source }));
     } else {
       begin("identify");
-      const identity = await identify(query, llm);
+      // Google Search grounding needs a billing-enabled key; without it we read official pages directly.
+      let search = true;
+      const noSearch = () => {
+        if (!search) return;
+        search = false;
+        log("Google Search grounding isn't available on this key — switching to reading the provider's official pages directly.");
+      };
+      const identity = await identify(query, llm, noSearch);
       done("identify", `${identity.appName} · ${identity.category} · OAuth: ${identity.offersOAuth}`);
       if (identity.ambiguous && identity.alternatives.length) {
         log(`"${query}" is ambiguous — assuming ${identity.appName} (could also be: ${identity.alternatives.join(", ")})`);
@@ -97,42 +107,32 @@ export async function investigate(
       begin("research");
       log(`Use case assumed: ${identity.assumedUseCase}`);
       let mode: "full" | "limited" = "full";
-      const results: Track[] = [];
-      // When identify isn't sure OAuth exists, one cheap check decides whether full research is worth paying for.
-      if (identity.offersOAuth !== "yes") {
-        log(`Identify reported OAuth: ${identity.offersOAuth} — checking availability before full research.`);
-        const r = await llm.grounded(AVAILABILITY_BRIEF.prompt(identity), { system: RESEARCH_SYSTEM, label: AVAILABILITY_BRIEF.key });
-        results.push({ brief: AVAILABILITY_BRIEF, result: r });
-        const verdict = parseAvailability(r.text);
-        if (verdict !== "available") mode = "limited";
-        log(
-          verdict === "available"
-            ? "Availability check: a public OAuth flow exists — running full research."
-            : `Availability check: ${verdict === "none" ? "no public OAuth" : "OAuth could not be confirmed"} — writing a short guide instead (3 research calls saved).`,
-        );
+      let sources: Source[] = [];
+      let notes: { label: string; text: string }[] = [];
+      if (search) {
+        try {
+          const grounded = await groundedResearch(identity, llm, log);
+          mode = grounded.mode;
+          done("research", `${grounded.results.reduce((n, r) => n + r.result.queries.length, 0)} searches across ${grounded.results.length} research track${grounded.results.length > 1 ? "s" : ""}`);
+          emit({ type: "usage", usage: { ...llm.usage } });
+          begin("sources");
+          ({ sources, notes } = await buildSources(identity, grounded.results, (src) => emit({ type: "source", source: src })));
+        } catch (e) {
+          if (!(e instanceof LLMError && e.kind === "billing")) throw e;
+          noSearch();
+        }
       }
-      if (mode === "full") {
-        results.push(
-          ...(await Promise.all(
-            RESEARCH_BRIEFS.map(async (brief) => {
-              const urls = brief.key === "mechanics" && /^https:\/\//.test(identity.developerDocsUrl) ? [identity.developerDocsUrl] : [];
-              const r = await llm.grounded(brief.prompt(identity), { system: RESEARCH_SYSTEM, urls, label: brief.key });
-              log(`${brief.label}: ${r.queries.length} searches, ${r.chunks.length} sources${r.queries.length ? ` — e.g. “${r.queries[0]}”` : ""}`);
-              return { brief, result: r };
-            }),
-          )),
-        );
+      if (!search) {
+        ({ sources, notes, mode } = await directResearch(identity, llm, log, (src) => emit({ type: "source", source: src })));
+        done("research", `${sources.length} official page${sources.length === 1 ? "" : "s"} read directly`);
+        emit({ type: "usage", usage: { ...llm.usage } });
+        begin("sources");
       }
-      done("research", `${results.reduce((n, r) => n + r.result.queries.length, 0)} searches across ${results.length} research track${results.length > 1 ? "s" : ""}`);
-      emit({ type: "usage", usage: { ...llm.usage } });
-
-      begin("sources");
-      const { sources, notes } = await buildSources(identity, results, (s) => emit({ type: "source", source: s }));
-      const official = sources.filter((s) => s.kind === "official").length;
+      const official = sources.filter((src) => src.kind === "official").length;
       done("sources", `${sources.length} sources · ${official} official`);
       if (!official) log("No official sources were found — the guide will lean on community reports and uncertainty.");
 
-      checkpoint = { identity, sources, notes, mode };
+      checkpoint = { identity, sources, notes, mode, searchMode: search ? "grounded" : "direct" };
       await saveCheckpoint(querySlug, checkpoint).catch(() => {});
     }
 
@@ -144,7 +144,8 @@ export async function investigate(
     begin("verify");
     const { content: graded, downgraded } = enforceEvidence(content, checkpoint.sources);
     const slug = slugify(checkpoint.identity.appName) || querySlug;
-    const nSources = `${checkpoint.sources.length} web source${checkpoint.sources.length === 1 ? "" : "s"}`;
+    const direct = checkpoint.searchMode === "direct";
+    const nSources = `${checkpoint.sources.length} ${direct ? "official page" : "web source"}${checkpoint.sources.length === 1 ? "" : "s"}${direct ? " read directly (no web search on this key)" : ""}`;
     let guide: Guide = Guide.parse({
       ...graded,
       schemaVersion: 1,
@@ -177,6 +178,13 @@ export async function investigate(
       log(`${probe.ok ? "✓" : "⚠"} ${probe.kind} ${hostOf(probe.target)} — ${probe.observed}`);
     });
     flagUnsourcedUrls(guide, checkpoint);
+    if (direct) {
+      guide.uncertainties.push({
+        question: "Not searched: developer forums and community reports",
+        why: "This key has no Google Search grounding, so only the provider's own pages were read. Real-world gotchas reported by developers may be missing.",
+        howToResolve: "Re-run with a billing-enabled Gemini key, or search the provider's community forum for review and rate-limit issues.",
+      });
+    }
     const tested = guide.probes.filter((p) => p.ok).length;
     done("verify", `${tested}/${guide.probes.length} probes confirmed · ${guide.corrections.length} corrections`);
 
@@ -193,9 +201,15 @@ export async function investigate(
   }
 }
 
-async function identify(query: string, llm: LLM): Promise<Identity> {
-  const r = await llm.grounded(identifyPrompt(query), { system: RESEARCH_SYSTEM, label: "identify" });
-  let parsed = parseJsonLoose(r.text) as Partial<Identity> | null;
+async function identify(query: string, llm: LLM, onNoSearch: () => void): Promise<Identity> {
+  let parsed: Partial<Identity> | null = null;
+  try {
+    const r = await llm.grounded(identifyPrompt(query), { system: RESEARCH_SYSTEM, label: "identify" });
+    parsed = parseJsonLoose(r.text) as Partial<Identity> | null;
+  } catch (e) {
+    if (!(e instanceof LLMError && e.kind === "billing")) throw e;
+    onNoSearch();
+  }
   // Grounded responses occasionally come back truncated; fall back to an ungrounded JSON-mode call.
   if (!parsed?.appName) {
     const text = await llm.structured(identifyPrompt(query), { system: RESEARCH_SYSTEM, schema: undefined, label: "identify-fallback" });
@@ -219,6 +233,63 @@ async function identify(query: string, llm: LLM): Promise<Identity> {
     assumedUseCase: parsed.assumedUseCase || `AI agent acts on the user's ${parsed.appName} data`,
     ambiguous: !!parsed.ambiguous,
     alternatives: parsed.alternatives ?? [],
+    candidateDocUrls: (parsed.candidateDocUrls ?? []).filter((u) => /^https:\/\//.test(u)).slice(0, 8),
+  };
+}
+
+async function groundedResearch(identity: Identity, llm: LLM, log: (m: string) => void) {
+  let mode: "full" | "limited" = "full";
+  const results: Track[] = [];
+  // When identify isn't sure OAuth exists, one cheap check decides whether full research is worth paying for.
+  if (identity.offersOAuth !== "yes") {
+    log(`Identify reported OAuth: ${identity.offersOAuth} — checking availability before full research.`);
+    const r = await llm.grounded(AVAILABILITY_BRIEF.prompt(identity), { system: RESEARCH_SYSTEM, label: AVAILABILITY_BRIEF.key });
+    results.push({ brief: AVAILABILITY_BRIEF, result: r });
+    const verdict = parseAvailability(r.text);
+    if (verdict !== "available") mode = "limited";
+    log(
+      verdict === "available"
+        ? "Availability check: a public OAuth flow exists — running full research."
+        : `Availability check: ${verdict === "none" ? "no public OAuth" : "OAuth could not be confirmed"} — writing a short guide instead (3 research calls saved).`,
+    );
+  }
+  if (mode === "full") {
+    results.push(
+      ...(await Promise.all(
+        RESEARCH_BRIEFS.map(async (brief) => {
+          const urls = brief.key === "mechanics" && /^https:\/\//.test(identity.developerDocsUrl) ? [identity.developerDocsUrl] : [];
+          const r = await llm.grounded(brief.prompt(identity), { system: RESEARCH_SYSTEM, urls, label: brief.key });
+          log(`${brief.label}: ${r.queries.length} searches, ${r.chunks.length} sources${r.queries.length ? ` — e.g. “${r.queries[0]}”` : ""}`);
+          return { brief, result: r };
+        }),
+      )),
+    );
+  }
+  return { results, mode };
+}
+
+// No-search path: fetch official pages ourselves and have the model read them (one call).
+async function directResearch(identity: Identity, llm: LLM, log: (m: string) => void, onSource: (s: Source) => void) {
+  const seeds = [identity.developerDocsUrl, ...(identity.candidateDocUrls ?? []), identity.website];
+  const pages = await gatherOfficialPages(seeds, identity.officialDomains, log);
+  const sources = pagesToSources(pages);
+  sources.forEach(onSource);
+  if (!pages.length) {
+    log("No official documentation pages could be retrieved — writing a short, low-evidence guide.");
+    return {
+      sources,
+      mode: "limited" as const,
+      notes: [{ label: "Official documentation", text: "NOT FOUND: none of the provider's documentation pages could be retrieved or they contain no OAuth information." }],
+    };
+  }
+  log(`Reading ${pages.length} official pages (${pages.map((p) => new URL(p.url).pathname).slice(0, 4).join(", ")}${pages.length > 4 ? " …" : ""})`);
+  const text = await llm.read(directResearchPrompt(identity, pagesForPrompt(pages, sources)), { system: RESEARCH_SYSTEM, label: "direct" });
+  const verdict = parseAvailability(text);
+  if (verdict !== "available") log(`Pages ${verdict === "none" ? "show no public OAuth" : "don't confirm a public OAuth flow"} — writing a short guide.`);
+  return {
+    sources,
+    mode: verdict === "available" ? ("full" as const) : ("limited" as const),
+    notes: [{ label: "Official documentation (read directly)", text }],
   };
 }
 

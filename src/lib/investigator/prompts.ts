@@ -29,7 +29,8 @@ Respond with ONLY a JSON object (no prose) with these keys:
   "oauthNotes": "one sentence on what kind of OAuth (or other auth) it offers to third parties",
   "assumedUseCase": "the most likely thing an AI agent would do with this app on a user's behalf, one sentence",
   "ambiguous": true | false,
-  "alternatives": ["other products this name could refer to, if ambiguous"]
+  "alternatives": ["other products this name could refer to, if ambiguous"],
+  "candidateDocUrls": ["up to 8 official https URLs most likely to document: registering an OAuth app, the authorization flow, scopes, app review/verification/marketplace publishing, rate limits"]
 }`;
 }
 
@@ -44,6 +45,7 @@ export type Identity = {
   assumedUseCase: string;
   ambiguous: boolean;
   alternatives: string[];
+  candidateDocUrls?: string[];
 };
 
 const context = (id: Identity) =>
@@ -111,6 +113,26 @@ export function parseAvailability(text: string): "available" | "none" | "unclear
   const m = text.match(/VERDICT:\s*(OAUTH_AVAILABLE|NO_OAUTH|UNCLEAR)/i);
   if (!m) return "unclear";
   return m[1].toUpperCase() === "OAUTH_AVAILABLE" ? "available" : m[1].toUpperCase() === "NO_OAUTH" ? "none" : "unclear";
+}
+
+// Research prompt for keys without search grounding: the model reads official pages we fetched.
+export function directResearchPrompt(id: Identity, pages: string) {
+  return `${context(id)}
+
+Below are official ${id.appName} pages our agent retrieved (there is no web search in this mode).
+Using ONLY these pages, write research notes for a developer who must register an OAuth app for ${id.appName} and get it approved so customers can connect.
+
+Start with exactly one line: "VERDICT: OAUTH_AVAILABLE", "VERDICT: NO_OAUTH" or "VERDICT: UNCLEAR" (UNCLEAR if the pages don't settle whether third parties can use OAuth).
+
+Then three sections:
+## Registration & OAuth mechanics — console URL, app types, authorize/token URLs, PKCE, redirect URI rules, token lifetimes and refresh, scopes this integration needs, rate limits, per-customer endpoints.
+## Review, verification & distribution — paid plan needs, what's required before other customers can connect, reviews, marketplace, partner programs, customer-admin approval, published timelines.
+## Alternatives & contacts — if OAuth isn't offered: API keys/tokens and how users create them; the official developer support or contact channel.
+
+Rules: one fact per bullet; cite the page id after every bullet like [S3]; copy exact URLs, scope strings and numbers; write "NOT FOUND: <what>" for anything these pages don't cover — do not fill gaps from memory.
+
+PAGES
+${pages}`;
 }
 
 const archetypes = ARCHETYPES.map((a) => `- ${a}: ${ARCHETYPE_INFO[a].description} (e.g. ${ARCHETYPE_INFO[a].examples})`).join("\n");

@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, type GenerateContentResponse } from "@google/genai";
 
 export const DEFAULT_MODEL = "gemini-3.8-flash";
-// Used when the configured model is overloaded (503) even after a retry.
-export const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash";
+// Tried in order when the configured model is overloaded (5xx) after retries.
+export const FALLBACK_MODELS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3-flash-preview")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
 
 export type Usage = { calls: number; inputTokens: number; outputTokens: number; searchQueries: number };
 
@@ -18,6 +22,8 @@ export interface LLM {
   preflight(): Promise<void>;
   grounded(prompt: string, opts: { system: string; urls?: string[]; label: string }): Promise<GroundedResult>;
   structured(prompt: string, opts: { system: string; schema: unknown; label: string }): Promise<string>;
+  // Plain generation over material we supply (no web search); urls are read with URL context if given.
+  read(prompt: string, opts: { system: string; urls?: string[]; label: string }): Promise<string>;
   usage: Usage;
   onFallback?: (model: string) => void;
 }
@@ -25,7 +31,7 @@ export interface LLM {
 export class LLMError extends Error {
   constructor(
     message: string,
-    readonly kind: "auth" | "quota" | "billing" | "model" | "timeout" | "other",
+    readonly kind: "auth" | "quota" | "model_quota" | "billing" | "model" | "timeout" | "overloaded" | "other",
   ) {
     super(message);
   }
@@ -39,6 +45,11 @@ function classify(e: unknown): LLMError {
   }
   if (status === 401 || status === 403 || /API key not valid|PERMISSION_DENIED|API_KEY_INVALID/i.test(msg)) {
     return new LLMError("The Gemini API key was rejected. Check GEMINI_API_KEY or the key you entered.", "auth");
+  }
+  // Free-tier keys get a small daily request quota per model; another model may still have room.
+  const quotaId = msg.match(/"quotaId":\s*"([^"]+)"/)?.[1];
+  if (quotaId && /PerModel/i.test(quotaId)) {
+    return new LLMError(`Daily quota for this model is used up (${quotaId}).`, "model_quota");
   }
   if (/check your plan and billing/i.test(msg)) {
     return new LLMError(
@@ -55,10 +66,11 @@ function classify(e: unknown): LLMError {
   return new LLMError(msg.slice(0, 300), "other");
 }
 
-const retryable = (e: LLMError, status?: number) => e.kind === "quota" || (status !== undefined && status >= 500);
+const groundingBlocked = new Map<string, number>();
 
 export class GeminiLLM implements LLM {
   private ai: GoogleGenAI;
+  private keyId: string;
   usage: Usage = { calls: 0, inputTokens: 0, outputTokens: 0, searchQueries: 0 };
   onFallback?: (model: string) => void;
 
@@ -68,6 +80,7 @@ export class GeminiLLM implements LLM {
     private readonly synthesisModel: string = process.env.GEMINI_SYNTHESIS_MODEL || model,
   ) {
     this.ai = new GoogleGenAI({ apiKey });
+    this.keyId = createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
   }
 
   // Metadata lookup only: validates the key and model without spending tokens.
@@ -89,49 +102,76 @@ export class GeminiLLM implements LLM {
     timeoutMs: number,
   ): Promise<GenerateContentResponse> {
     let config = initialConfig;
-    let fellBack = false;
-    for (let attempt = 0; ; attempt++) {
-      try {
-        const res = await this.ai.models.generateContent({
-          model,
-          contents,
-          config: { ...config, abortSignal: AbortSignal.timeout(timeoutMs) },
-        });
-        this.usage.calls++;
-        this.usage.inputTokens += res.usageMetadata?.promptTokenCount ?? 0;
-        this.usage.outputTokens +=
-          (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
-        return res;
-      } catch (e) {
-        const err = classify(e);
-        const status = (e as { status?: number })?.status;
-        // Overloaded model: after the plain retry, switch to the fallback model once.
-        if (attempt >= 1 && status === 503 && !fellBack && model !== FALLBACK_MODEL) {
-          model = FALLBACK_MODEL;
-          fellBack = true;
-          this.onFallback?.(FALLBACK_MODEL);
-          continue;
+    let lastError: LLMError | null = null;
+    // Overloaded (5xx) calls aren't billed, so walk a short model chain with backoff before giving up.
+    const chain = [model, ...FALLBACK_MODELS.filter((m) => m !== model)];
+    for (const [i, current] of chain.entries()) {
+      if (i > 0) this.onFallback?.(current);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await this.ai.models.generateContent({
+            model: current,
+            contents,
+            config: { ...config, abortSignal: AbortSignal.timeout(timeoutMs) },
+          });
+          this.usage.calls++;
+          this.usage.inputTokens += res.usageMetadata?.promptTokenCount ?? 0;
+          this.usage.outputTokens +=
+            (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
+          return res;
+        } catch (e) {
+          const err = classify(e);
+          const status = (e as { status?: number })?.status;
+          lastError = err;
+          // Rejected requests are not billed: if a model doesn't support a setting, drop it and retry.
+          if (/thinking/i.test(err.message) && config.thinkingConfig) {
+            config = { ...config, thinkingConfig: undefined };
+            continue;
+          }
+          if (/url_?context/i.test(err.message) && Array.isArray(config.tools)) {
+            config = { ...config, tools: (config.tools as object[]).filter((t) => !("urlContext" in t)) };
+            continue;
+          }
+          if (err.kind === "model_quota") break; // this model is done for today — try the next one
+          if (status !== undefined && status >= 500) {
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+            continue;
+          }
+          // Rate limits get one short wait; auth, billing and model errors fail fast so nothing is wasted.
+          if (err.kind === "quota" && attempt === 0) {
+            await new Promise((r) => setTimeout(r, 5000));
+            continue;
+          }
+          throw err;
         }
-        // One retry for transient failures only; auth/model errors fail fast so no tokens are wasted.
-        if (attempt === 0 && retryable(err, (e as { status?: number })?.status)) {
-          await new Promise((r) => setTimeout(r, 2500));
-          continue;
-        }
-        // Rejected requests are not billed: if a configured model doesn't support a setting, drop it and retry.
-        if (attempt === 0 && /thinking/i.test(err.message) && config.thinkingConfig) {
-          config = { ...config, thinkingConfig: undefined };
-          continue;
-        }
-        if (attempt === 0 && /url_?context/i.test(err.message) && Array.isArray(config.tools)) {
-          config = { ...config, tools: (config.tools as object[]).filter((t) => !("urlContext" in t)) };
-          continue;
-        }
-        throw err;
       }
     }
+    if (lastError?.kind === "model_quota") {
+      throw new LLMError(
+        `Every model in the chain (${chain.join(", ")}) has used up this key's daily free quota. Try tomorrow, enable billing, or paste another key in Settings.`,
+        "quota",
+      );
+    }
+    throw new LLMError(
+      `All Gemini models tried (${chain.join(", ")}) are overloaded right now. Wait a minute and press Retry. ${lastError ? `(${lastError.message.slice(0, 120)})` : ""}`,
+      "overloaded",
+    );
   }
 
   async grounded(prompt: string, opts: { system: string; urls?: string[]; label: string }): Promise<GroundedResult> {
+    // Don't spend a request re-discovering that this key can't use Search grounding.
+    if ((groundingBlocked.get(this.keyId) ?? 0) > Date.now()) {
+      throw new LLMError("Google Search grounding is unavailable on this key (cached).", "billing");
+    }
+    try {
+      return await this.groundedCall(prompt, opts);
+    } catch (e) {
+      if (e instanceof LLMError && e.kind === "billing") groundingBlocked.set(this.keyId, Date.now() + 3600_000);
+      throw e;
+    }
+  }
+
+  private async groundedCall(prompt: string, opts: { system: string; urls?: string[]; label: string }): Promise<GroundedResult> {
     const contents = opts.urls?.length
       ? `${prompt}\n\nRead these pages if they are relevant:\n${opts.urls.join("\n")}`
       : prompt;
@@ -161,6 +201,22 @@ export class GeminiLLM implements LLM {
       })),
       queries,
     };
+  }
+
+  async read(prompt: string, opts: { system: string; urls?: string[]; label: string }): Promise<string> {
+    const res = await this.call(
+      this.model,
+      opts.urls?.length ? `${prompt}\n\nAlso read these pages:\n${opts.urls.join("\n")}` : prompt,
+      {
+        systemInstruction: opts.system,
+        ...(opts.urls?.length ? { tools: [{ urlContext: {} }] } : {}),
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        maxOutputTokens: 8000,
+        temperature: 0.2,
+      },
+      150_000,
+    );
+    return res.text ?? "";
   }
 
   async structured(prompt: string, opts: { system: string; schema: unknown; label: string }): Promise<string> {

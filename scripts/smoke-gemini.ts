@@ -42,8 +42,14 @@ const synthesized = JSON.stringify(curated, (key, value) =>
 );
 
 const requests: Req[] = [];
+let billingBlocked = false;
 async function fakeGenerate(req: Req) {
   requests.push(req);
+  if (billingBlocked && req.config.tools?.some((t: object) => "googleSearch" in t)) {
+    throw Object.assign(new Error('{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details."}}'), { status: 429 });
+  }
+  if (req.contents.includes("pages our agent retrieved")) return response("VERDICT: OAUTH_AVAILABLE\n## Registration\n- Public connections use OAuth 2.0. [S1]");
+  if (req.config.responseMimeType === "application/json" && req.contents.includes("A developer typed")) return response(JSON.stringify(identity));
   if (req.config.responseMimeType === "application/json") return response(synthesized);
   if (req.contents.includes("A developer typed")) return response("```json\n" + JSON.stringify(identity) + "\n```", { webSearchQueries: ["notion oauth"] });
   if (req.contents.includes("VERDICT: OAUTH_AVAILABLE")) {
@@ -120,9 +126,41 @@ async function limited() {
   if (g) console.log(`  origin note: ${g.origin.note}`);
 }
 
+// Third scenario: the key has no Search grounding quota (429 "check your plan and billing").
+// The agent must switch to reading official pages directly — real fetches against Notion's docs.
+async function direct() {
+  requests.length = 0;
+  billingBlocked = true;
+  Object.assign(identity, {
+    appName: "Notion Smoke Direct",
+    offersOAuth: "yes",
+    candidateDocUrls: ["https://developers.notion.com/guides/get-started/authorization", "https://developers.notion.com/reference/request-limits"],
+  });
+  const { GeminiLLM } = await import("../src/lib/investigator/gemini");
+  const { investigate } = await import("../src/lib/investigator/pipeline");
+  const llm = new GeminiLLM("fake-key-for-offline-smoke-test-000000");
+  (llm as any).ai = { models: { get: async () => ({ name: "models/x" }), generateContent: fakeGenerate } };
+  const events: any[] = [];
+  await investigate("notion-smoke-direct", llm, (e) => events.push(e), { force: true });
+  const err = events.find((e) => e.type === "error");
+  const g = events.find((e) => e.type === "done")?.guide;
+  const logs = events.filter((e) => e.type === "log").map((e) => e.message);
+  const switched = logs.some((m: string) => /switching to reading the provider's official pages/.test(m));
+  if (err) console.error("✗ direct: pipeline error", err.message);
+  if (!switched) console.error("✗ direct: did not switch to direct-docs research");
+  if (!g?.sources.some((s: any) => s.kind === "official" && /notion\.com/.test(s.url))) console.error("✗ direct: no official pages fetched");
+  if (err || !switched || !g) process.exitCode = 1;
+  else {
+    console.log(`✓ direct: switched to direct-docs research; ${g.sources.filter((s: any) => s.kind === "official").length} official pages fetched`);
+    for (const m of logs.filter((m: string) => /Read |Followed|Reading/.test(m))) console.log(`  › ${m}`);
+    console.log(`  origin note: ${g.origin.note}`);
+  }
+}
+
 async function run() {
   await full();
   await limited();
+  await direct();
 }
 
 async function full() {

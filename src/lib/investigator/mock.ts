@@ -66,6 +66,12 @@ export class MockLLM implements LLM {
     };
   }
 
+  async read(): Promise<string> {
+    await wait(800);
+    this.usage.calls++;
+    return "VERDICT: OAUTH_AVAILABLE\n- MOCK NOTE: OAuth apps are created in workspace settings. [S1]";
+  }
+
   async structured(): Promise<string> {
     await wait(1200);
     this.usage.calls++;

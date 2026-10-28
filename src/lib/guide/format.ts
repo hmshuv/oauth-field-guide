@@ -58,7 +58,7 @@ const sentenceCase = (t: string) =>
   (/^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t).replace(/\.$/, "");
 
 // Our own tooling notes aren't questions for the provider.
-const isProviderQuestion = (q: string) => !/^Probe:|does not appear in any research source/.test(q);
+const isProviderQuestion = (q: string) => !/^Probe:|^Not searched:|does not appear in any research source/.test(q);
 
 // A ready-to-send message to the provider, built from the guide's open questions — the developer's
 // next step when documentation runs out.
