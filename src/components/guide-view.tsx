@@ -3,7 +3,7 @@
 import { compressToEncodedURIComponent } from "lz-string";
 import { useMemo } from "react";
 import { coverageLabel, DIFFICULTY_INFO, evidenceCounts, evidenceCoverage, verdictOf } from "@/lib/guide/difficulty";
-import { formatDays, formatMinutes, guideToMarkdown, providerEmail } from "@/lib/guide/format";
+import { formatDays, formatMinutes, guideToMarkdown, numberedSteps, providerEmail } from "@/lib/guide/format";
 import type { Guide } from "@/lib/guide/schema";
 import {
   ARCHETYPE_INFO,
@@ -16,9 +16,11 @@ import {
 } from "@/lib/guide/taxonomy";
 import { ArchetypeBadge, EvidenceBadge, EvidencePill, OwnerPill, SourcesContext, VerdictBadge } from "./badges";
 import { CopyButton } from "./copy-button";
+import { JourneyMap } from "./journey-map";
 
 const SECTIONS = [
   ["overview", "Overview"],
+  ["map", "Path at a glance"],
   ["factors", "What affects setup"],
   ["split", "Agent vs. you"],
   ["steps", "Steps"],
@@ -141,6 +143,11 @@ export function GuideView({ guide, shareable = true }: { guide: Guide; shareable
               </div>
             </div>
           </section>
+
+          {/* Map */}
+          <Section id="map" title="Your path at a glance" subtitle="Who does each step, where you wait on the provider, and when each milestone is reached.">
+            <JourneyMap guide={guide} />
+          </Section>
 
           {/* Factors */}
           <Section id="factors" title="What affects your setup" subtitle={ARCHETYPE_INFO[guide.classification.archetype].short}>
@@ -468,20 +475,19 @@ function SplitView({ guide }: { guide: Guide }) {
 }
 
 function StepList({ guide }: { guide: Guide }) {
-  let n = 0;
+  const numbered = numberedSteps(guide);
   return (
     <div className="space-y-6">
       {STEP_PHASES.map((phase) => {
-        const steps = guide.steps.filter((s) => s.phase === phase);
+        const steps = numbered.filter(({ step }) => step.phase === phase);
         if (!steps.length) return null;
         return (
           <div key={phase}>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{PHASE_INFO[phase]}</h3>
             <ol className="mt-2 space-y-3">
-              {steps.map((s, i) => {
-                n++;
+              {steps.map(({ step: s, n }) => {
                 return (
-                  <li key={i} className="flex gap-3">
+                  <li key={n} id={`step-${n}`} className="flex scroll-mt-24 gap-3 rounded-lg target:bg-accent-soft">
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold">
                       {n}
                     </span>

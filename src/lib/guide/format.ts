@@ -43,6 +43,11 @@ function ev(e: Evidence): string {
   return `_(${evidenceLabel(e)}${refs})_`;
 }
 
+// Steps in phase order with the display number used everywhere (step list, map, Markdown).
+export function numberedSteps(g: Pick<Guide, "steps">) {
+  return STEP_PHASES.flatMap((phase) => g.steps.filter((s) => s.phase === phase)).map((step, i) => ({ step, n: i + 1 }));
+}
+
 export function guideUrlPath(slug: string) {
   return `/guides/${slug}`;
 }
