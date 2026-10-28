@@ -1,0 +1,843 @@
+{
+  "schemaVersion": 1,
+  "slug": "gmail",
+  "appName": "Gmail (Google)",
+  "website": "https://mail.google.com",
+  "category": "Email",
+  "assumedUseCase": "AI agent reads, drafts and sends email from the user's Gmail account.",
+  "tldr": "Hard: you can test in an hour, but every Gmail scope that reads mail or manages drafts is restricted. Before arbitrary users can connect without warnings, you need brand verification, restricted-scope review (Google estimates about 6 weeks) and an annual third-party CASA security assessment paid by you. Until then, you're limited to 100 test users whose refresh tokens expire after 7 days, or a lifetime cap of 100 users who click through an 'unverified app' warning.",
+  "classification": {
+    "archetype": "scope_verification",
+    "rationale": "Project and client setup is self-serve, but the scopes decide the review. gmail.send alone is sensitive. gmail.readonly, gmail.compose and gmail.modify are restricted, and an agent that stores or transmits that data through a server must pass a security assessment. Workspace customers' admins can also block or must trust the app.",
+    "flags": [
+      {
+        "id": "domain_verification",
+        "detail": "Every domain in Authorized domains (homepage, privacy policy, redirect URIs) must be verified in Google Search Console by a project Owner or Editor.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S4"
+          ]
+        }
+      },
+      {
+        "id": "policy_urls_required",
+        "detail": "Homepage must be on your verified domain and can't be just a login page. Your privacy policy must be on the same domain, linked from the homepage and the consent screen, and must disclose how Google user data is accessed, used, stored and shared. A Limited Use compliance statement must appear in the app or on your website.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S4",
+            "S11"
+          ]
+        }
+      },
+      {
+        "id": "manual_app_review",
+        "detail": "Google's estimates (not guaranteed): brand verification 2-3 business days, sensitive scopes 10 business days, restricted scopes 6 weeks.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S6"
+          ]
+        }
+      },
+      {
+        "id": "demo_video",
+        "detail": "Submit a link to a demo video showing the end-to-end flow, including the OAuth grant screen and how each requested scope is used. Developers usually upload it to YouTube as unlisted.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S4"
+          ],
+          "note": "Requirement is official; the YouTube/unlisted convention is community practice (S19)."
+        }
+      },
+      {
+        "id": "security_assessment",
+        "detail": "Restricted scopes + data stored or transmitted on servers require an annual CASA assessment. Google assigns assurance level AL1 or AL2, and the assessment is done by an App Defense Alliance authorized lab (e.g. TAC Security, DEKRA, Bishop Fox, NetSentries). Google charges nothing; you pay the lab. Community-reported prices range from about $540-$720 (TAC Security) to $3,000+. Revalidation is due every 12 months from the previous Letter of Validation.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S1",
+            "S5",
+            "S6",
+            "S7",
+            "S8",
+            "S9"
+          ],
+          "note": "Lab prices come from Nango's Aug-2025 vendor list (S19, community); Google does not publish them."
+        }
+      },
+      {
+        "id": "user_cap_until_approved",
+        "detail": "Testing status allows up to 100 test users. Unverified apps in production get 100 new users in total after the unverified-app screen. That cap covers the project's whole lifetime and can't be reset. Even personal-use apps must verify to grow beyond 100 users.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S3",
+            "S6",
+            "S18"
+          ]
+        }
+      },
+      {
+        "id": "customer_admin_consent",
+        "detail": "Workspace admins can block unconfigured third-party apps or mark Gmail as a Restricted service. Then only apps configured as Trusted or 'Specific Google data' (by OAuth client ID) can get Gmail scopes, and switching a service to Restricted revokes tokens of untrusted apps.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S12"
+          ]
+        }
+      },
+      {
+        "id": "token_lifecycle_gotchas",
+        "detail": "Refresh tokens expire after 7 days in Testing. They're returned only on first consent (access_type=offline). They're revoked when a user changes their password if the token has Gmail scopes, and expire after 6 months unused. Each account+client gets at most 100 refresh tokens; the oldest is silently invalidated. Org session-control policies can cap sessions at 1-24h.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2",
+            "S3",
+            "S14"
+          ]
+        }
+      },
+      {
+        "id": "redirect_uri_restrictions",
+        "detail": "Redirect URIs must exactly match a registered URI (scheme, case, trailing slash) and use HTTPS. Raw IP hosts and wildcards aren't allowed; localhost is exempt.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S14"
+          ]
+        }
+      }
+    ]
+  },
+  "effort": {
+    "firstToken": {
+      "activeMinutes": {
+        "min": 30,
+        "max": 60
+      },
+      "waitDays": {
+        "min": 0,
+        "max": 0
+      },
+      "conditions": "Cloud project with the Gmail API enabled, Google Auth Platform configured as External + Testing, your account added as a test user, and a Web OAuth client. You click through the 'Google hasn't verified this app' screen, and the refresh token dies after 7 days.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S13",
+          "S3"
+        ]
+      }
+    },
+    "production": {
+      "activeMinutes": {
+        "min": 1500,
+        "max": 4800
+      },
+      "waitDays": {
+        "min": 14,
+        "max": 90
+      },
+      "conditions": "Brand verification, restricted-scope verification and a CASA Letter of Validation are approved, the app is In production, and Workspace customers' admins have trusted the client ID if they restrict Gmail. Active time covers the privacy policy, domain verification, demo video, justifications and CASA remediation.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S6",
+          "S5",
+          "S19"
+        ],
+        "note": "Google's own estimates: brand 2-3 business days, restricted 6 weeks (S6). Nango (community, S19) reports Trust & Safety approval often under a week, plus 5-20 days for CASA; the 14-day floor depends on that community data. The 90-day ceiling allows for resubmissions."
+      }
+    }
+  },
+  "quickRef": {
+    "consoleUrl": "https://console.cloud.google.com/auth/overview",
+    "docsUrl": "https://developers.google.com/identity/protocols/oauth2/web-server",
+    "authorizeUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+    "tokenUrl": "https://oauth2.googleapis.com/token",
+    "discoveryUrl": "https://accounts.google.com/.well-known/openid-configuration",
+    "facts": [
+      {
+        "label": "Endpoints & PKCE",
+        "value": "Discovery lists PKCE methods plain and S256. Revoke tokens at https://oauth2.googleapis.com/revoke.",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "T1"
+          ],
+          "note": "curl -s https://accounts.google.com/.well-known/openid-configuration on 2026-10-28: authorization_endpoint https://accounts.google.com/o/oauth2/v2/auth, token_endpoint https://oauth2.googleapis.com/token, revocation_endpoint https://oauth2.googleapis.com/revoke, code_challenge_methods_supported [plain, S256], grant_types_supported [authorization_code, refresh_token, device_code, jwt-bearer]."
+        }
+      },
+      {
+        "label": "Getting a refresh token",
+        "value": "Send access_type=offline. The refresh_token comes back only on the first authorization, so add prompt=consent to force a new one when re-connecting.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S14"
+          ]
+        }
+      },
+      {
+        "label": "Testing-mode expiry",
+        "value": "In Testing status (External), authorizations and refresh tokens expire 7 days after consent, unless the only scopes are openid/email/profile.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2",
+            "S3"
+          ]
+        }
+      },
+      {
+        "label": "Refresh-token killers",
+        "value": "6 months unused, password change (when the token has Gmail scopes), user revocation, time-based access expiry, org session control (1-24h), and over 100 tokens per account per client (the oldest is dropped silently).",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S2"
+          ]
+        }
+      },
+      {
+        "label": "Access-token lifetime",
+        "value": "Short-lived; use expires_in from the token response. Google's overview page only says tokens have 'limited lifetimes' (typically 3600s).",
+        "evidence": {
+          "status": "uncertain",
+          "sources": [],
+          "note": "The overview doc gives no number; 3600s is the commonly observed expires_in but we didn't observe it with a real token."
+        }
+      },
+      {
+        "label": "Gmail API quotas",
+        "value": "6,000 quota units/min per user per project and 1,200,000/min per project. messages.send = 100 units, messages.get = 20 (60 for full/raw), drafts.create = 10. New quotas apply to projects created on or after 2026-05-01, with a daily billing threshold of 80M units per project. Charges for usage above it are planned for later in 2026, with 90 days' notice.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S15",
+            "S16"
+          ]
+        }
+      },
+      {
+        "label": "Granular consent",
+        "value": "Users can uncheck individual scopes on the consent screen. Check the scope field in the token response and degrade gracefully, or re-prompt with include_granted_scopes=true.",
+        "evidence": {
+          "status": "source",
+          "sources": [
+            "S14"
+          ]
+        }
+      },
+      {
+        "label": "Invalid-client behavior",
+        "value": "An unknown client_id at /o/oauth2/v2/auth sends the user to accounts.google.com/signin/oauth/error. At the token endpoint it returns 401 invalid_client 'The OAuth client was not found.'",
+        "evidence": {
+          "status": "tested",
+          "sources": [
+            "T2",
+            "T3"
+          ],
+          "note": "GET https://accounts.google.com/o/oauth2/v2/auth?client_id=probe-invalid&response_type=code&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&scope=…gmail.send&access_type=offline on 2026-10-28 returned 302 → https://accounts.google.com/signin/oauth/error?authError=… (base64 decodes to 'invalid_client … The OAuth client was not found.'). POST https://oauth2.googleapis.com/token with grant_type=authorization_code, code=bogus, client_id=probe-invalid, client_secret=probe-invalid on 2026-10-28 returned HTTP 401 {\"error\":\"invalid_client\",\"error_description\":\"The OAuth client was not found.\"}; grant_type=refresh_token with a bogus token returned the same."
+        }
+      }
+    ]
+  },
+  "scopes": [
+    {
+      "scope": "https://www.googleapis.com/auth/gmail.readonly",
+      "purpose": "Read messages, threads and settings so the agent can triage and summarize mail.",
+      "tier": "restricted",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/gmail.compose",
+      "purpose": "Create, update and send drafts, and send messages. Covers both drafting and sending.",
+      "tier": "restricted",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/gmail.modify",
+      "purpose": "Alternative to readonly+compose if the agent also labels, archives or marks messages read (read, compose, send; no permanent delete).",
+      "tier": "restricted",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/gmail.send",
+      "purpose": "Send only. Sensitive, not restricted, so no CASA, but it can't read mail or manage drafts. Enough only for a send-only agent.",
+      "tier": "sensitive",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1"
+        ]
+      }
+    },
+    {
+      "scope": "openid email",
+      "purpose": "Identify which Google account was connected (store the sub and email).",
+      "tier": "basic",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2"
+        ],
+        "note": "S2 names email/profile/OpenID as basic identity scopes that are exempt from the 7-day Testing expiry."
+      }
+    }
+  ],
+  "prerequisites": [
+    {
+      "item": "Google Cloud project with the Gmail API enabled",
+      "detail": "One project per environment is common. The project's Owner and Editor emails receive verification and recertification mail, so keep them current.",
+      "owner": "developer",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S13",
+          "S7"
+        ]
+      }
+    },
+    {
+      "item": "Owned domain, verified in Search Console",
+      "detail": "All authorized domains (homepage, privacy policy, redirect URIs) must be verified by a project Owner or Editor.",
+      "owner": "business",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S4"
+        ]
+      }
+    },
+    {
+      "item": "Public homepage + privacy policy with a Limited Use statement",
+      "detail": "The homepage describes the app (not just a login page) and links to the privacy policy on the same domain. The policy discloses access, use, storage and sharing of Google data, and states compliance with the Google API Services User Data Policy, including Limited Use.",
+      "owner": "business",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S4",
+          "S10",
+          "S11"
+        ]
+      }
+    },
+    {
+      "item": "Budget and owner for the annual CASA assessment",
+      "detail": "You pay the authorized lab directly. Plan for remediation work and yearly revalidation.",
+      "owner": "business",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S5",
+          "S6",
+          "S7"
+        ]
+      }
+    },
+    {
+      "item": "Customer Workspace admin cooperation",
+      "detail": "If the customer restricts Gmail or blocks unconfigured apps, their admin must configure your OAuth client ID as Trusted or 'Specific Google data' in Admin console → Security → API controls.",
+      "owner": "customer_admin",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S12"
+        ]
+      }
+    }
+  ],
+  "steps": [
+    {
+      "phase": "prepare",
+      "title": "Decide scopes and data flow",
+      "detail": "Map each agent feature to the narrowest scope. Reading or drafting forces restricted scopes. Because an AI agent sends message content through your servers and an LLM, plan for CASA. Write down why narrower scopes (gmail.send, gmail.metadata) wouldn't work.",
+      "url": "https://developers.google.com/workspace/gmail/api/auth/scopes",
+      "owner": "human",
+      "humanReason": "business_decision",
+      "agentHelp": "Inventory Gmail API calls in the codebase, map them to scopes, and draft the per-scope justification text (template below).",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S4"
+        ]
+      }
+    },
+    {
+      "phase": "prepare",
+      "title": "Publish homepage and privacy policy, and verify the domain",
+      "detail": "Host the homepage and privacy policy on your domain, with the Limited Use disclosure. Add the domain as a property in Google Search Console and verify it (usually a DNS TXT record) with a project Owner or Editor account.",
+      "url": "https://search.google.com/search-console",
+      "owner": "human",
+      "humanReason": "domain_or_dns",
+      "agentHelp": "Draft the privacy-policy section on Google user data and the Limited Use statement, and add both pages to the site. The human adds the DNS TXT record.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S4",
+          "S11"
+        ]
+      }
+    },
+    {
+      "phase": "register",
+      "title": "Create the Cloud project and enable the Gmail API",
+      "detail": "Create (or pick) a project, then enable gmail.googleapis.com.",
+      "url": "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
+      "owner": "shared",
+      "humanReason": "account_login",
+      "agentHelp": "If the developer is logged in to gcloud, run `gcloud projects create` and `gcloud services enable gmail.googleapis.com --project <id>`.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S13"
+        ]
+      }
+    },
+    {
+      "phase": "configure",
+      "title": "Configure Google Auth Platform: Branding, Audience, Data Access",
+      "detail": "Branding: app name, support email, logo, homepage, privacy policy, terms and authorized domains. Audience: External, leave in Testing, add test users. Data Access: add exactly the scopes you'll submit, since a mismatch with the submission is a common rejection.",
+      "url": "https://console.cloud.google.com/auth/branding",
+      "owner": "human",
+      "humanReason": "account_login",
+      "agentHelp": "Produce a checklist of exact field values and the scope list, copied from the code's scope constants.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S13",
+          "S3",
+          "S19"
+        ]
+      }
+    },
+    {
+      "phase": "configure",
+      "title": "Create a Web application OAuth client",
+      "detail": "Google Auth Platform → Clients → Create client → Web application. Add exact HTTPS redirect URIs per environment (localhost is allowed for dev). Store the client ID and secret in your secret manager.",
+      "url": "https://console.cloud.google.com/auth/clients",
+      "owner": "human",
+      "humanReason": "account_login",
+      "agentHelp": "List every redirect URI the app uses per environment and generate the .env template.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S14"
+        ]
+      }
+    },
+    {
+      "phase": "configure",
+      "title": "Implement the authorization-code flow",
+      "detail": "Redirect with scope, access_type=offline, prompt=consent (on reconnect), state, PKCE S256 and include_granted_scopes=true. Exchange the code at oauth2.googleapis.com/token. Check which scopes were actually granted. Store refresh tokens encrypted, and handle invalid_grant as 'reconnect needed'.",
+      "url": "https://developers.google.com/identity/protocols/oauth2/web-server",
+      "owner": "agent",
+      "humanReason": null,
+      "agentHelp": "Implement it with google-auth-library or openid-client, including a granted-scope check, encrypted token storage, refresh and revoke on disconnect, and quota-aware backoff on 429/403 rateLimitExceeded.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S14",
+          "S2"
+        ]
+      }
+    },
+    {
+      "phase": "test",
+      "title": "Connect your own Gmail as a test user",
+      "detail": "Sign in as a listed test user, accept the unverified-app warning, and test read, draft and send. Expect the refresh token to stop working 7 days after consent while in Testing.",
+      "url": "https://console.cloud.google.com/auth/audience",
+      "owner": "shared",
+      "humanReason": "account_login",
+      "agentHelp": "Write an end-to-end smoke test: list 5 messages, create a draft, and send it to a test address.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S3"
+        ]
+      }
+    },
+    {
+      "phase": "review",
+      "title": "Record the demo video and submit for verification",
+      "detail": "Record the full flow: Google consent screen showing the exact scopes, then each feature that uses each scope. In Verification Center, submit brand and restricted-scope verification with justifications, then reply to Trust & Safety emails promptly.",
+      "url": "https://console.cloud.google.com/auth/verification",
+      "owner": "human",
+      "humanReason": "recording",
+      "agentHelp": "Write the video shot list and narration script, and finalize the justification text and Limited Use answers.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S4",
+          "S6"
+        ]
+      }
+    },
+    {
+      "phase": "review",
+      "title": "Complete the CASA security assessment",
+      "detail": "When Google's team prompts you (the final step of restricted review), engage an authorized lab, complete the assessment at the assigned level (AL1 or AL2), fix the findings, and submit the Letter of Validation.",
+      "url": "https://support.google.com/cloud/answer/13465431",
+      "owner": "human",
+      "humanReason": "legal_or_billing",
+      "agentHelp": "Run SAST and dependency scans, map controls to the CASA/OWASP ASVS requirements, fix findings, and assemble evidence such as encryption at rest, access controls and logging.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S5",
+          "S8",
+          "S9"
+        ]
+      }
+    },
+    {
+      "phase": "launch",
+      "title": "Publish to production and calendar recertification",
+      "detail": "Move the Audience to In production after approval. Recertification is due 12 months from the LOV date and is a full reassessment even without code changes.",
+      "url": "https://support.google.com/cloud/answer/13463816",
+      "owner": "human",
+      "humanReason": "business_decision",
+      "agentHelp": "Add a monitored reminder about 90 days before LOV expiry, and a CI check that the requested scopes in code match the approved set.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S7",
+          "S3"
+        ]
+      }
+    },
+    {
+      "phase": "customer",
+      "title": "Workspace customers: admin trusts your client ID",
+      "detail": "If the customer restricts Gmail or blocks unconfigured apps, their admin must add your app by OAuth client ID in Admin console → Security → Access and data control → API controls and set it to Trusted or Specific Google data.",
+      "url": "https://knowledge.workspace.google.com/admin/apps/control-which-apps-access-google-workspace-data",
+      "owner": "human",
+      "humanReason": "customer_admin",
+      "agentHelp": "Generate a customer admin guide that includes your client ID and requested scopes, and detect admin_policy_enforced errors in the callback to show it.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S12"
+        ]
+      }
+    }
+  ],
+  "gotchas": [
+    {
+      "title": "No Gmail read or draft scope avoids restricted verification",
+      "detail": "gmail.readonly, gmail.compose, gmail.modify and gmail.metadata are all restricted; only gmail.send (sensitive) and gmail.labels are lower tier. If restricted data is stored on or transmitted through your servers, which is the norm for an AI agent, CASA is required every year.",
+      "severity": "blocker",
+      "mitigation": "Budget for CASA from day one, or ship a send-only first version on gmail.send while restricted verification runs.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S1",
+          "S5"
+        ]
+      }
+    },
+    {
+      "title": "7-day refresh tokens in Testing",
+      "detail": "Test users' authorizations, including refresh tokens, expire 7 days after consent, so beta users get logged out every week.",
+      "severity": "warning",
+      "mitigation": "Show a clear 'reconnect Gmail' prompt on invalid_grant. Don't treat Testing as a beta channel for real customers.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2",
+          "S3"
+        ]
+      }
+    },
+    {
+      "title": "The 100-user cap is lifetime and can't be reset",
+      "detail": "An unverified production app can onboard 100 new users in total over the project's whole life. Going 'In production' before verification can burn the cap.",
+      "severity": "blocker",
+      "mitigation": "Stay in Testing with named test users until verification is approved, and use a separate project for experiments.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S3",
+          "S6"
+        ]
+      }
+    },
+    {
+      "title": "Workspace admins can silently block or revoke you",
+      "detail": "Admins can disallow unconfigured third-party apps or mark Gmail as Restricted. Turning on Restricted revokes tokens of untrusted apps that already connected.",
+      "severity": "warning",
+      "mitigation": "Ship an admin allowlisting guide with your OAuth client ID. Detect the authorization error (commonly reported as admin_policy_enforced; the code isn't confirmed in the cited doc) and invalid_grant, and route the user to the guide.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S12"
+        ]
+      }
+    },
+    {
+      "title": "Refresh tokens disappear in surprising ways",
+      "detail": "They're returned only on first consent, revoked on password change (Gmail scopes), and silently dropped beyond 100 per account per client. Test harnesses that reconnect repeatedly hit the 100 limit.",
+      "severity": "warning",
+      "mitigation": "Use prompt=consent on reconnect, keep one refresh token per user, revoke old ones on disconnect, and alert on refresh failures.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S2",
+          "S14"
+        ]
+      }
+    },
+    {
+      "title": "Common rejection reasons",
+      "detail": "Scopes on the consent screen or Data Access page that don't match the submission, a homepage that's only a login page, a privacy policy on another domain or missing the Limited Use statement, vague justifications, a demo that doesn't show the real consent screen, and misuse of Google product names.",
+      "severity": "warning",
+      "mitigation": "Use the justification template, record every scope's feature, and match the submitted scope list to code exactly.",
+      "evidence": {
+        "status": "community",
+        "sources": [
+          "S19",
+          "S4"
+        ],
+        "note": "Several items (homepage, privacy domain, justification) are official requirements (S4); 'mismatch is a guaranteed rejection' is reported by Nango (S19)."
+      }
+    },
+    {
+      "title": "Limited Use bans model training on Gmail data",
+      "detail": "Workspace API data may not be used to create, train or improve AI/ML models beyond that user's personalized model. Transfers are allowed only to provide user-facing features. Humans may not read the data without the user's affirmative agreement, except for security, legal or aggregated internal operations.",
+      "severity": "warning",
+      "mitigation": "Use LLM providers with zero-retention, no-training terms, disclose them in the privacy policy, and exclude Gmail data from logs, evals and fine-tuning sets.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S10",
+          "S11"
+        ]
+      }
+    },
+    {
+      "title": "New quota model for projects created after 2026-05-01",
+      "detail": "New projects get the standardized agent-tool quotas: 6,000 units/min per user, with messages.send costing 100 units, so about 60 sends/min per user. A daily billing threshold of 80M units per project applies, and charges above it are planned for later in 2026. Quota increases will require billing to be enabled.",
+      "severity": "info",
+      "mitigation": "Batch reads, prefer messages.list + metadata over full fetches, and enable billing early on the production project.",
+      "evidence": {
+        "status": "source",
+        "sources": [
+          "S15",
+          "S16",
+          "S17"
+        ]
+      }
+    }
+  ],
+  "uncertainties": [
+    {
+      "question": "Which CASA assurance level (AL1 or AL2) will Google assign, and what will it really cost?",
+      "why": "Google assigns the level from user count, scopes and other signals and publishes no prices. Vendor prices (about $540 to $3,000+) are community-reported, and much third-party material still uses the old 'Tier 2/Tier 3' labels with no official mapping to AL1/AL2.",
+      "howToResolve": "Wait for the Trust & Safety email after restricted review starts, then get quotes from two or three labs on the App Defense Alliance authorized list."
+    },
+    {
+      "question": "How do reviewers treat sending Gmail content to a third-party LLM API?",
+      "why": "Limited Use allows transfers only to provide user-facing features and bans training generalized models. The policy doesn't explicitly address LLM inference providers as subprocessors.",
+      "howToResolve": "Disclose the LLM provider and its no-training terms in the privacy policy and justification, and ask in the verification email thread if challenged."
+    },
+    {
+      "question": "What will usage above the daily billing threshold cost, and when?",
+      "why": "Google says billing details will come 'later in 2026' with at least 90 days' notice. As of 2026-10-28 we found no published price.",
+      "howToResolve": "Watch developers.google.com/workspace/tools-safety and the Workspace Developers blog."
+    },
+    {
+      "question": "Does Google's Workspace MCP server (public developer preview since 2026-05-01) change verification for third-party agents?",
+      "why": "The announcement describes Gmail MCP tools but not how third-party OAuth clients get verified or capped when using it.",
+      "howToResolve": "Read the 'Configure the Google Workspace MCP servers' guide and check whether it reuses your own OAuth client and scopes."
+    },
+    {
+      "question": "How long will verification really take for this app?",
+      "why": "Google's estimates aren't guaranteed, and community reports range from about 2 weeks to over 2 months depending on resubmissions and CASA remediation.",
+      "howToResolve": "Submit early with a complete package, answer reviewer emails within 24h, and start lab scoping as soon as restricted review begins."
+    }
+  ],
+  "agentHandoff": {
+    "prompt": "You are implementing Google OAuth so our AI agent can read, draft and send Gmail on behalf of users.\nFacts: authorize https://accounts.google.com/o/oauth2/v2/auth, token https://oauth2.googleapis.com/token, revoke https://oauth2.googleapis.com/revoke; PKCE S256 is supported. Scopes: openid email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose (both Gmail scopes are restricted).\nTasks:\n1. Load GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI from env (see the .env template). Never commit secrets.\n2. /auth/google/start: build the authorize URL with response_type=code, access_type=offline, include_granted_scopes=true, prompt=consent (on reconnect), a signed state, and a PKCE S256 code_challenge.\n3. /auth/google/callback: verify state, exchange the code with the code_verifier, parse the granted 'scope' string, and mark missing features if the user unchecked a scope. Store the refresh_token encrypted, plus sub, email and granted scopes.\n4. Write a Gmail client wrapper: refresh access tokens using expires_in, and on invalid_grant set needs_reconnect. Handle admin_policy_enforced by showing our Workspace-admin guide. Back off exponentially on 429 and on 403 rateLimitExceeded/userRateLimitExceeded.\n5. Disconnect: call the revoke endpoint and delete stored tokens.\n6. Never log message bodies. Keep Gmail data out of analytics, eval and training datasets (Limited Use).\n7. Add a CI test asserting that the scope list in code equals config/google-approved-scopes.json.\n8. Draft the per-scope justification and Limited Use statement from the templates, filling in our real features.\nDon't touch the Google Cloud console; a human creates the project, consent screen and client and gives you the client ID and secret.",
+    "artifacts": [
+      {
+        "title": ".env template",
+        "language": "dotenv",
+        "content": "# Google Auth Platform → Clients → Web application\nGOOGLE_CLIENT_ID=000000000000-xxxxxxxxxxxxxxxx.apps.googleusercontent.com\nGOOGLE_CLIENT_SECRET=replace-me-from-secret-manager\nGOOGLE_REDIRECT_URI=https://app.example.com/auth/google/callback\nGOOGLE_SCOPES=openid email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose\n# Encrypt refresh tokens at rest\nTOKEN_ENCRYPTION_KEY=generate-a-random-32-byte-value\n"
+      },
+      {
+        "title": "Scope justification template (restricted-scope verification)",
+        "language": "markdown",
+        "content": "## https://www.googleapis.com/auth/gmail.readonly\nFeature: <AppName>'s assistant reads the user's recent inbox threads to summarize them and suggest replies inside <AppName> (screen: <Inbox Summary>, shown at <mm:ss> in the demo video).\nWhy narrower scopes don't work: gmail.metadata exposes only headers and labels, and the summaries need message bodies. gmail.send cannot read mail.\nData handling: message content is processed only to produce the summary the user requested. It's stored encrypted for <N days>, not shared except with <LLM provider> under zero-retention, no-training terms, and never used to train models.\n\n## https://www.googleapis.com/auth/gmail.compose\nFeature: the assistant creates draft replies that the user reviews and sends, or sends a message the user explicitly approves (demo <mm:ss>).\nWhy narrower scopes don't work: gmail.send can send but cannot create or update drafts, and the user's review-before-send flow depends on drafts.\n\n## Limited Use statement (homepage/privacy policy)\n<AppName>'s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.\n"
+      },
+      {
+        "title": "Customer Workspace admin guide",
+        "language": "markdown",
+        "content": "If your users see \"<AppName> is blocked\" or \"admin_policy_enforced\":\n1. Admin console → Security → Access and data control → API controls → Manage Third-Party App Access.\n2. Add app → OAuth App Name or Client ID → enter <GOOGLE_CLIENT_ID>.\n3. Choose the org units, then set access to \"Trusted\" (or \"Specific Google data\" limited to gmail.readonly and gmail.compose).\nScopes requested: openid, email, gmail.readonly, gmail.compose. Security assessment: CASA Letter of Validation dated <date>.\n"
+      }
+    ]
+  },
+  "nextAction": "Write down which features truly need to read mail. If any do, start the privacy policy, Limited Use statement and Search Console domain verification today, because restricted verification and CASA can't start without them.",
+  "origin": {
+    "kind": "curated",
+    "generatedAt": "2026-10-28T00:00:00Z",
+    "model": null,
+    "durationMs": null,
+    "note": "Researched from official docs by a research agent on 2026-10-28 and reviewed before inclusion."
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Gmail API – Choose Gmail API scopes",
+      "url": "https://developers.google.com/workspace/gmail/api/auth/scopes",
+      "kind": "official"
+    },
+    {
+      "id": "S2",
+      "title": "Google Identity – Using OAuth 2.0 to Access Google APIs (refresh token expiration)",
+      "url": "https://developers.google.com/identity/protocols/oauth2",
+      "kind": "official"
+    },
+    {
+      "id": "S3",
+      "title": "Google Cloud Help – Manage App Audience",
+      "url": "https://support.google.com/cloud/answer/15549945",
+      "kind": "official"
+    },
+    {
+      "id": "S4",
+      "title": "Google Cloud Help – Verification requirements",
+      "url": "https://support.google.com/cloud/answer/13464321",
+      "kind": "official"
+    },
+    {
+      "id": "S5",
+      "title": "Google Cloud Help – Security Assessment",
+      "url": "https://support.google.com/cloud/answer/13465431",
+      "kind": "official"
+    },
+    {
+      "id": "S6",
+      "title": "Google Cloud Help – OAuth verification FAQ",
+      "url": "https://support.google.com/cloud/answer/13463817",
+      "kind": "official"
+    },
+    {
+      "id": "S7",
+      "title": "Google Cloud Help – Annual Recertification",
+      "url": "https://support.google.com/cloud/answer/13463816",
+      "kind": "official"
+    },
+    {
+      "id": "S8",
+      "title": "App Defense Alliance – CASA Assurance Levels",
+      "url": "https://appdefensealliance.dev/casa/casa-tiering",
+      "kind": "official"
+    },
+    {
+      "id": "S9",
+      "title": "App Defense Alliance – Authorized labs",
+      "url": "https://www.appdefensealliance.org/certification/authorized-labs",
+      "kind": "official"
+    },
+    {
+      "id": "S10",
+      "title": "Google API Services User Data Policy",
+      "url": "https://developers.google.com/terms/api-services-user-data-policy",
+      "kind": "official"
+    },
+    {
+      "id": "S11",
+      "title": "Google Workspace API user data and developer policy",
+      "url": "https://developers.google.com/workspace/workspace-api-user-data-developer-policy",
+      "kind": "official"
+    },
+    {
+      "id": "S12",
+      "title": "Google Workspace Admin – Control which apps access Google Workspace data",
+      "url": "https://knowledge.workspace.google.com/admin/apps/control-which-apps-access-google-workspace-data",
+      "kind": "official"
+    },
+    {
+      "id": "S13",
+      "title": "Google Workspace – Configure the OAuth consent screen and choose scopes",
+      "url": "https://developers.google.com/workspace/guides/configure-oauth-consent",
+      "kind": "official"
+    },
+    {
+      "id": "S14",
+      "title": "Google Identity – OAuth 2.0 for Web Server Applications",
+      "url": "https://developers.google.com/identity/protocols/oauth2/web-server",
+      "kind": "official"
+    },
+    {
+      "id": "S15",
+      "title": "Gmail API – Usage limits",
+      "url": "https://developers.google.com/workspace/gmail/api/reference/quota",
+      "kind": "official"
+    },
+    {
+      "id": "S16",
+      "title": "Google Workspace – Standardized model for agent tools and APIs",
+      "url": "https://developers.google.com/workspace/tools-safety",
+      "kind": "official"
+    },
+    {
+      "id": "S17",
+      "title": "Workspace Updates – Agent tools and security updates for Workspace developers (2026-05-01)",
+      "url": "https://workspaceupdates.googleblog.com/2026/05/agent-tools-and-security-updates-for-workspace-developers.html",
+      "kind": "official"
+    },
+    {
+      "id": "S18",
+      "title": "Google Cloud Help – When is verification not needed",
+      "url": "https://support.google.com/cloud/answer/13464323",
+      "kind": "official"
+    },
+    {
+      "id": "S19",
+      "title": "Nango – Google security review guide",
+      "url": "https://nango.dev/docs/api-integrations/google-shared/google-security-review",
+      "kind": "community"
+    },
+    {
+      "id": "T1",
+      "title": "Probe: Google OIDC discovery document (2026-10-28)",
+      "url": "https://accounts.google.com/.well-known/openid-configuration",
+      "kind": "probe"
+    },
+    {
+      "id": "T2",
+      "title": "Probe: authorize with client_id=probe-invalid (2026-10-28)",
+      "url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=probe-invalid&response_type=code&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.send&access_type=offline",
+      "kind": "probe"
+    },
+    {
+      "id": "T3",
+      "title": "Probe: token endpoint with bogus client/code (2026-10-28)",
+      "url": "https://oauth2.googleapis.com/token",
+      "kind": "probe"
+    }
+  ],
+  "probes": []
+}
