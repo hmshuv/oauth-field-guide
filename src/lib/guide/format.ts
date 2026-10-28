@@ -43,6 +43,16 @@ function ev(e: Evidence): string {
   return `_(${evidenceLabel(e)}${refs})_`;
 }
 
+export type Actor = "agent" | "you" | "provider" | "customer";
+
+// Who actually acts on a step — finer than `owner`: waits on the provider's reviewers and
+// steps done by the customer's admin are not the developer's work.
+export function actorOf(s: Guide["steps"][number]): Actor {
+  if (s.phase === "customer" || s.humanReason === "customer_admin") return "customer";
+  if (s.humanReason === "provider_review") return "provider";
+  return s.owner === "agent" ? "agent" : "you";
+}
+
 // Steps in phase order with the display number used everywhere (step list, map, Markdown).
 export function numberedSteps(g: Pick<Guide, "steps">) {
   return STEP_PHASES.flatMap((phase) => g.steps.filter((s) => s.phase === phase)).map((step, i) => ({ step, n: i + 1 }));
@@ -89,94 +99,100 @@ export function providerEmail(g: Guide): { to: string; subject: string; body: st
   return { to, subject: `OAuth integration questions — ${g.appName}`, body };
 }
 
-// Plain markdown export, so a guide can be pasted into an issue, doc or chat.
+// Plain markdown export, so a guide can be pasted into an issue, doc or chat. Same order as the page:
+// "Do it" first (scannable), then "Why & details".
 export function guideToMarkdown(g: Guide): string {
   const verdict = verdictOf(g);
   const coverage = evidenceCoverage(g);
-  const lines: string[] = [];
-  lines.push(`# ${g.appName} — OAuth app setup guide`);
-  lines.push("");
-  lines.push(
-    `**Verdict:** ${verdictText(verdict)} · **Archetype:** ${ARCHETYPE_INFO[g.classification.archetype].label} · **Evidence:** ${coverageLabel(coverage)} (${Math.round(coverage * 100)}% backed) · **Use case:** ${g.assumedUseCase}`,
-  );
-  lines.push("");
-  lines.push(`> ${g.tldr}`);
-  lines.push("");
-  lines.push(`| Milestone | Hands-on time | Wait on provider |`);
-  lines.push(`| --- | --- | --- |`);
-  lines.push(
-    `| Works with your own account | ${formatMinutes(g.effort.firstToken.activeMinutes)} | ${formatDays(g.effort.firstToken.waitDays)} |`,
-  );
-  lines.push(
-    `| Any customer can connect | ${formatMinutes(g.effort.production.activeMinutes)} | ${formatDays(g.effort.production.waitDays)} |`,
-  );
-  lines.push("");
-  lines.push(`**Next action:** ${g.nextAction}`);
-  lines.push("");
-  if (g.classification.flags.length) {
-    lines.push(`## What affects your setup`);
-    for (const f of g.classification.flags) lines.push(`- **${FLAG_INFO[f.id].label}:** ${f.detail} ${ev(f.evidence)}`);
-    lines.push("");
+  const steps = numberedSteps(g);
+  const gotchas = [...g.gotchas].sort((a, b) => ["blocker", "warning", "info"].indexOf(a.severity) - ["blocker", "warning", "info"].indexOf(b.severity));
+  const who = (s: Guide["steps"][number]) =>
+    ({ agent: "🤖 Agent", you: s.owner === "shared" ? "🤝 Agent prepares, you finish" : "👤 You", provider: "⏳ Provider", customer: "🏢 Customer admin" })[actorOf(s)];
+  const L: string[] = [];
+  L.push(`# ${g.appName} — OAuth app setup guide`, "");
+  L.push(`**${verdictText(verdict)}** · ${ARCHETYPE_INFO[g.classification.archetype].label} · for: ${g.assumedUseCase}`, "");
+  const wait = (r: Range) => (formatDays(r) === "No wait" ? "no wait" : `${formatDays(r)} wait`);
+  L.push(`- **Works for you:** ${formatMinutes(g.effort.firstToken.activeMinutes)} hands-on · ${wait(g.effort.firstToken.waitDays)}`);
+  L.push(`- **Any customer can connect:** ${formatMinutes(g.effort.production.activeMinutes)} hands-on · ${wait(g.effort.production.waitDays)}`);
+  L.push("", `**Do this next:** ${g.nextAction}`, "");
+
+  if (gotchas.length) {
+    L.push("## Watch out for");
+    for (const x of gotchas) L.push(`- **${x.severity}:** ${x.title}`);
+    L.push("");
   }
-  lines.push(`## Steps`);
-  let n = 1;
+  if (g.prerequisites.length) {
+    L.push("## Before you start");
+    for (const p of g.prerequisites) L.push(`- [ ] ${p.item}`);
+    L.push("");
+  }
+  L.push("## Steps");
   for (const phase of STEP_PHASES) {
-    const steps = g.steps.filter((s) => s.phase === phase);
-    if (!steps.length) continue;
-    lines.push(`### ${PHASE_INFO[phase]}`);
-    for (const s of steps) {
-      const owner = s.owner === "agent" ? "🤖 Agent" : s.owner === "human" ? "👤 You" : "🤝 Shared";
-      lines.push(`${n++}. **${s.title}** (${owner})${s.basis === "assumed" ? " **[Assumed — not in provider docs]**" : ""} ${ev(s.evidence)}`);
-      lines.push(`   ${s.detail}`);
-      if (s.url) lines.push(`   ${s.url}`);
-      if (s.humanReason) lines.push(`   _Why a human:_ ${HUMAN_REASON_INFO[s.humanReason]}`);
-      if (s.agentHelp) lines.push(`   _Agent can:_ ${s.agentHelp}`);
+    const inPhase = steps.filter(({ step }) => step.phase === phase);
+    if (!inPhase.length) continue;
+    L.push(`**${PHASE_INFO[phase]}**`);
+    for (const { step: s, n } of inPhase) {
+      L.push(`${n}. ${s.title} — ${who(s)}${s.basis === "assumed" ? " _(assumed)_" : ""}${s.url ? ` · ${s.url}` : ""}`);
     }
   }
-  lines.push("");
-  lines.push(`## Gotchas`);
-  for (const x of g.gotchas) {
-    lines.push(`- **${x.severity.toUpperCase()} — ${x.title}:** ${x.detail} _Mitigation:_ ${x.mitigation} ${ev(x.evidence)}`);
+  L.push("");
+  L.push("## Copy & paste");
+  if (g.scopes.length) L.push(`- Scopes: \`${g.scopes.map((s) => s.scope).join(" ")}\``);
+  L.push(`- Console: ${g.quickRef.consoleUrl ?? "not found"}`);
+  L.push(`- Docs: ${g.quickRef.docsUrl ?? "not found"}`);
+  if (g.quickRef.authorizeUrl) L.push(`- Authorize URL: ${g.quickRef.authorizeUrl}`);
+  if (g.quickRef.tokenUrl) L.push(`- Token URL: ${g.quickRef.tokenUrl}`);
+  L.push("");
+
+  L.push("---", "", "# Why & details", "");
+  L.push(g.tldr, "", g.classification.rationale, "");
+  L.push(`Evidence: ${coverageLabel(coverage)} (${Math.round(coverage * 100)}% of claims backed by tests or official docs).`, "");
+  if (g.classification.flags.length) {
+    L.push("## What affects your setup");
+    for (const f of g.classification.flags) L.push(`- **${FLAG_INFO[f.id].label}:** ${f.detail} ${ev(f.evidence)}`);
+    L.push("");
   }
-  lines.push("");
+  L.push("## Step details");
+  for (const { step: s, n } of steps) {
+    L.push(`${n}. **${s.title}** ${ev(s.evidence)}`, `   ${s.detail}`);
+    if (s.humanReason && s.owner !== "agent") L.push(`   _Why a human:_ ${HUMAN_REASON_INFO[s.humanReason]}`);
+    if (s.agentHelp) L.push(`   _Agent can:_ ${s.agentHelp}`);
+  }
+  L.push("");
+  if (gotchas.length) {
+    L.push("## Gotchas explained");
+    for (const x of gotchas) L.push(`- **${x.title}:** ${x.detail} _Fix:_ ${x.mitigation} ${ev(x.evidence)}`);
+    L.push("");
+  }
   if (g.scopes.length) {
-    lines.push(`## Scopes`);
-    for (const s of g.scopes) lines.push(`- \`${s.scope}\` (${s.tier}) — ${s.purpose} ${ev(s.evidence)}`);
-    lines.push("");
+    L.push("## Why each scope");
+    for (const s of g.scopes) L.push(`- \`${s.scope}\` (${s.tier}) — ${s.purpose} ${ev(s.evidence)}`);
+    L.push("");
   }
-  lines.push(`## Quick reference`);
-  lines.push(`- Console: ${g.quickRef.consoleUrl ?? "not found"}`);
-  lines.push(`- Docs: ${g.quickRef.docsUrl ?? "not found"}`);
-  if (g.quickRef.authorizeUrl) lines.push(`- Authorize URL: ${g.quickRef.authorizeUrl}`);
-  if (g.quickRef.tokenUrl) lines.push(`- Token URL: ${g.quickRef.tokenUrl}`);
-  for (const f of g.quickRef.facts) lines.push(`- ${f.label}: ${f.value} ${ev(f.evidence)}`);
-  lines.push("");
+  if (g.quickRef.facts.length) {
+    L.push("## Reference facts");
+    for (const f of g.quickRef.facts) L.push(`- ${f.label}: ${f.value} ${ev(f.evidence)}`);
+    L.push("");
+  }
   if (g.uncertainties.length) {
-    lines.push(`## What we couldn't verify`);
-    for (const u of g.uncertainties) lines.push(`- **${u.question}** ${u.why} _To resolve:_ ${u.howToResolve}`);
-    lines.push("");
+    L.push("## What we couldn't verify");
+    for (const u of g.uncertainties) L.push(`- **${u.question}** ${u.why} _To resolve:_ ${u.howToResolve}`);
+    L.push("");
+  }
+  if (g.probes.length) {
+    L.push("## What we tested");
+    for (const p of g.probes) L.push(`- ${p.ok ? "✅" : "⚠️"} ${p.kind} \`${p.target}\` → ${p.observed}`);
+    L.push("");
   }
   const email = providerEmail(g);
   if (email) {
-    lines.push(`## Ask the provider`);
-    lines.push(`To: ${email.to}`);
-    lines.push(`Subject: ${email.subject}`);
-    lines.push("");
-    lines.push("```");
-    lines.push(email.body);
-    lines.push("```");
-    lines.push("");
+    L.push("## Ask the provider", `To: ${email.to}`, `Subject: ${email.subject}`, "", "```", email.body, "```", "");
   }
-  if (g.probes.length) {
-    lines.push(`## What we tested`);
-    for (const p of g.probes) lines.push(`- ${p.ok ? "✅" : "⚠️"} ${p.kind} \`${p.target}\` → ${p.observed}`);
-    lines.push("");
-  }
-  lines.push(`## Sources`);
-  for (const s of g.sources) lines.push(`- [${s.id}] ${s.title} — ${s.url}`);
-  lines.push("");
-  lines.push(
+  L.push("## Sources");
+  for (const s of g.sources) L.push(`- [${s.id}] ${s.title} — ${s.url}`);
+  L.push(
+    "",
     `_Evidence key: Tested = observed by our agent; Source-backed = official docs; Community-reported = developer reports; Uncertain = not confirmed. Generated ${g.origin.generatedAt.slice(0, 10)}._`,
   );
-  return lines.join("\n");
+  return L.join("\n");
 }

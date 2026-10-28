@@ -28,16 +28,24 @@ export function EvidencePill({ status, children }: { status: EvidenceStatus; chi
 }
 
 // Evidence badge with a hover/focus card listing the note and the sources behind the claim.
-export function EvidenceBadge({ evidence }: { evidence: Evidence }) {
+// `compact` renders just a coloured glyph (for scannable checklists); the hover card is the same.
+export function EvidenceBadge({ evidence, compact = false }: { evidence: Evidence; compact?: boolean }) {
   const sources = useContext(SourcesContext);
   const cited = evidence.sources.map((id) => sources.get(id)).filter((s): s is Source => !!s);
+  const style = EV_STYLE[evidence.status];
   return (
     <span className="group relative inline-flex align-middle">
       <button type="button" className="cursor-help focus:outline-none" aria-label={`Evidence: ${EVIDENCE_INFO[evidence.status].label}`}>
-        <EvidencePill status={evidence.status}>
-          {EVIDENCE_INFO[evidence.status].label}
-          {cited.length > 0 && <span className="opacity-70">· {cited.map((s) => s.id).join(" ")}</span>}
-        </EvidencePill>
+        {compact ? (
+          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px]" style={{ color: style.color, background: style.bg }}>
+            {style.glyph}
+          </span>
+        ) : (
+          <EvidencePill status={evidence.status}>
+            {EVIDENCE_INFO[evidence.status].label}
+            {cited.length > 0 && <span className="opacity-70">· {cited.map((s) => s.id).join(" ")}</span>}
+          </EvidencePill>
+        )}
       </button>
       <span className="absolute right-0 top-full z-30 mt-1 hidden w-80 max-w-[85vw] rounded-lg border border-line bg-surface p-3 text-xs text-ink shadow-lg group-hover:block group-focus-within:block sm:left-0 sm:right-auto">
         <span className="block font-medium">{EVIDENCE_INFO[evidence.status].label}</span>
@@ -92,11 +100,13 @@ export function ArchetypeBadge({ archetype }: { archetype: Archetype }) {
   );
 }
 
-export function OwnerPill({ owner }: { owner: "agent" | "human" | "shared" }) {
+export function OwnerPill({ owner }: { owner: "agent" | "human" | "shared" | "provider" | "customer" }) {
   const map = {
     agent: { label: "Agent can do", glyph: "🤖", cls: "bg-accent-soft text-accent" },
     human: { label: "You", glyph: "👤", cls: "bg-surface-2 text-ink" },
     shared: { label: "Agent prepares, you finish", glyph: "🤝", cls: "bg-surface-2 text-ink" },
+    provider: { label: "Provider reviews", glyph: "⏳", cls: "bg-surface-2 text-ink" },
+    customer: { label: "Customer admin", glyph: "🏢", cls: "bg-surface-2 text-ink" },
   }[owner];
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${map.cls}`}>

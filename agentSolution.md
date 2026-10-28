@@ -50,6 +50,8 @@ A developer building an AI agent needs their users to connect third-party apps. 
 | 4.2 | Key without Search grounding (user chose "build fallback") | enable billing · **direct-docs fallback** · other search APIs | Model suggests official URLs → we fetch + follow OAuth links → one read call | Works on free keys (reviewers too); sources are pages we retrieved. Other providers researched, not integrated (see §7) |
 | 4.3 | Free-tier quotas / overload | — | Model chain with backoff; skip models whose daily quota is spent; cache "no grounding" per key | Observed live: 503s on two models, 20 RPD cap |
 | 4.4 | Visual walkthrough (user chose swimlane) | swimlane · two-clock timeline · phase stepper | Swimlane map, data-driven, zero tokens | User found guides text-heavy |
+| 4.5 | Map arrows (user request) | — | Curved arrows between consecutive steps, measured from rendered nodes | Shows the order and the hand-offs between actors |
+| 4.6 | Guide layout: "what" before "why" (user request) | inline what+why · collapsible details · **two-part page** | Part 1 *Do it*: verdict, timing stats, *Do this next*, map, *Watch out for* (titles), *Before you start* checklist, step checklist (title · actor · evidence dot · open link), *Copy & paste* (scopes, URLs, agent prompt). Part 2 *Why & details*: summary and rationale, effort conditions, flags, step details, gotchas with fixes, scope reasons, facts, verification, ask-the-provider, sources. Every Part 1 item links to its why; Markdown export uses the same order | A developer first wants to act, then to understand; the data model is unchanged, so no regeneration |
 
 ## 5. What we learned (research highlights)
 
