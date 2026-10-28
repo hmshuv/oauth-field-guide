@@ -13,7 +13,7 @@ cp .env.example .env.local      # (or .env) then set GEMINI_API_KEY (https://ais
 npm run dev                     # http://localhost:3000
 ```
 
-No key? The library works without one. Visitors can also paste their own Gemini key in **Settings** (stored in their browser only). `INVESTIGATOR_MOCK=1` runs the live flow against canned responses (no API calls) for UI testing.
+No key? The library works without one. **Free-tier keys work too:** Google Search grounding needs a billing-enabled Gemini project; without it the agent automatically switches to reading the provider's official pages directly (see *Live pipeline* below). Free tiers also cap requests per model per day (20/day for `gemini-3.8-flash` on the key we tested), so the agent falls back through `gemini-3.6-flash → gemini-3.5-flash-lite → gemini-3-flash-preview`. A run uses ~3 calls in direct mode, ~5 with search. Visitors can also paste their own Gemini key in **Settings** (stored in their browser only). `INVESTIGATOR_MOCK=1` runs the live flow against canned responses (no API calls) for UI testing.
 
 ### For coding agents setting this up
 
@@ -37,7 +37,9 @@ No key? The library works without one. Visitors can also paste their own Gemini 
 | Who grades evidence | Code, not the model | The model can't run tests, so model-claimed "tested" is downgraded; "source-backed" requires an official (provider-domain) citation. |
 | "Attempting setup" | Credential-free probes: discovery documents, authorize/token endpoints with a bogus client, console/docs URLs | It's what an agent can honestly attempt without accounts; it caught real errors in our own logic (see [docs/verification.md](docs/verification.md)). |
 | Agent vs. human | Every step has an owner (`agent` / `human` / `shared`), a human reason (2FA login, legal, provider review, customer admin, DNS, recording) and concrete agent help, plus a paste-ready prompt for the developer's coding agent | Answers "what can an agent do for me and where do I take over" per step, not as a vague summary. |
-| Live pipeline | Gemini `generateContent`: 1 identify call → 3 parallel Google-Search-grounded research tracks (mechanics, approval path, field reports) → structured-output synthesis → probes | Separating grounded research from structured output avoids known Gemini issues combining them; parallel tracks keep it ~1–2 min. |
+| Live pipeline | Gemini `generateContent`: 1 identify call → 3 parallel Google-Search-grounded research tracks (mechanics, approval path, field reports) → structured-output synthesis → probes. **Without grounding (free-tier keys):** the model suggests official doc URLs, we fetch them and follow OAuth-related links on official domains, and one call reads the pages | Separating grounded research from structured output avoids known Gemini issues combining them. The direct-docs path cites only pages we actually retrieved, so it can't invent URLs — but it can't see forums, which each guide states. |
+| Missing documentation | Availability check before full research; "No public OAuth" verdict; evidence coverage (<40% → *Unrated · low evidence*); steps tagged *Assumed*; URLs left empty when not found; an *Ask the provider* message built from open questions | When docs run out, the guide says so plainly and gives the developer a next step instead of confident filler. |
+| Walkthrough | "Your path at a glance" swimlane map at the top of each guide (phases × agent / you / provider wait / customer admin, plus milestones) | Text-heavy guides need a one-glance view; drawn from guide data, so it costs no tokens. |
 | Token thrift | Free key/model preflight; curated + cached guides cost nothing; research checkpointed so a failed synthesis retries without re-research; one cheap repair call for invalid JSON; per-IP limit on the shared key | The live flow should never waste a run. |
 | Sharing | Short link `/guides/<slug>` + portable link (whole guide compressed into the URL fragment) + Markdown + print/PDF | Short links are friendly; portable links survive serverless instances and need no database. |
 | Scope | 6 deep guides instead of 100 shallow ones | A trustworthy slice per archetype + a live investigator for the long tail is more useful than unverified breadth. |
@@ -62,7 +64,8 @@ Curated guides were researched from official docs by research agents, probed by 
 | --- | --- | --- |
 | `GEMINI_API_KEY` | — | Server key for live investigations (optional if visitors bring their own) |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Research model (Google Search grounding) |
-| `GEMINI_SYNTHESIS_MODEL` | same as above | Structured synthesis model (e.g. `gemini-4-argon` for higher quality) |
+| `GEMINI_SYNTHESIS_MODEL` | same as above | Structured synthesis model (e.g. `gemini-4-argon` for higher quality; paid tier only) |
+| `GEMINI_FALLBACK_MODELS` | `gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3-flash-preview` | Tried in order when a model is overloaded or out of daily free quota |
 | `INVESTIGATE_LIMIT_PER_HOUR` | `6` | Per-IP limit when the server key is used |
 | `INVESTIGATOR_MOCK` | `0` | `1` = canned responses, no API calls |
 | `GUIDES_DIR` | `data/generated` (`/tmp/oauth-guides` on Vercel) | Where live guides and research checkpoints are stored |
@@ -75,7 +78,8 @@ Curated guides were researched from official docs by research agents, probed by 
 - Review timelines are rarely published; estimates are conservative ranges and marked uncertain when unsupported.
 - Live guides reflect what web search surfaces at that moment; login-only or bot-blocked docs are invisible to it.
 - Probes prove endpoints are live and how they reject bad input — not that your configuration will be approved.
-- **The live investigator has been tested end-to-end offline (mock mode + an SDK-shaped harness, real probes) but not yet against the real Gemini API**, because no key was available during the build. Model output quality on unfamiliar apps is therefore the main unverified risk; the evidence checks are designed to contain it.
+- The live investigator has been run against the real Gemini API only on a **free-tier key** (no Search grounding), i.e. the direct-docs path: Linear and Plausible Analytics. The grounded path is verified offline (`npm run smoke`) but not yet live.
+- In direct-docs mode, citations are checked to exist and to be official pages, but not that each page states the exact claim.
 - Generated guides persist on local disk (or `/tmp` on serverless); there is no database.
 
 ## First live run (checklist)

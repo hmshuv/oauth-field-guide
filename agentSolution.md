@@ -1,6 +1,6 @@
 # Agent Solution Write-up
 
-> Written and maintained by the agent (see Protocol E in [agent.md](agent.md)). Last updated: 2026-10-28, end of the first autonomous run (Sprints 0–3).
+> Written and maintained by the agent (see Protocol E in [agent.md](agent.md)). Last updated: 2026-10-28 — after the missing-docs work, the free-tier fallback and the first real live runs.
 
 ## 1. The problem, restated
 
@@ -46,6 +46,10 @@ A developer building an AI agent needs their users to connect third-party apps. 
 | 3.2 | Agent thinking display | spinner · **stage list + live sources/probes + usage** | Stage timeline with per-stage logs, live evidence panel, token/search counter | Shows what the agent is actually doing and what it costs |
 | 3.3 | Sharing | DB-backed links · **short link + portable URL-fragment link + Markdown/PDF** | No database needed | Works on any deployment; portable link survives serverless |
 | 3.4 | Deployment & keys | — | Key only in env (server) or browser (BYO); `.env.example`; Vercel-ready | "Keep credentials out of the submission" |
+| 4.1 | Missing documentation (user-approved A–E) | — | Availability gate · evidence coverage + Unrated verdict · Assumed steps · Ask-the-provider message · No-public-OAuth verdict · nullable URLs | User asked how the pipeline behaves without docs; gaps were silent confidence and wasted runs |
+| 4.2 | Key without Search grounding (user chose "build fallback") | enable billing · **direct-docs fallback** · other search APIs | Model suggests official URLs → we fetch + follow OAuth links → one read call | Works on free keys (reviewers too); sources are pages we retrieved. Other providers researched, not integrated (see §7) |
+| 4.3 | Free-tier quotas / overload | — | Model chain with backoff; skip models whose daily quota is spent; cache "no grounding" per key | Observed live: 503s on two models, 20 RPD cap |
+| 4.4 | Visual walkthrough (user chose swimlane) | swimlane · two-clock timeline · phase stepper | Swimlane map, data-driven, zero tokens | User found guides text-heavy |
 
 ## 5. What we learned (research highlights)
 
@@ -60,6 +64,16 @@ A developer building an AI agent needs their users to connect third-party apps. 
 
 **Done & verified:** typecheck, lint, production build, schema validation of all guides, 30/30 library probes, offline end-to-end smoke test of the Gemini adapter, mock-mode UI run, 8/8 spot-checks.
 
-**Not yet verified:** a real Gemini run (no key during the build). Recommended first step for the user: one live run on `Linear`, review the output, then tune prompts if needed.
+**Live-verified (free-tier key, direct-docs path):** Linear (Moderate) and Plausible Analytics (No public OAuth), 3 calls each. **Not yet live-verified:** the search-grounded path (needs a billing-enabled key).
 
 **Ideas not built (scope):** a 100-app index seeded from the Composio directory with "generate on demand"; scheduled re-verification of library guides (re-run probes + diff); per-scope difficulty toggles (e.g. Gmail with only `gmail.send`).
+
+## 7. Other providers researched (not integrated)
+
+| Option | What it gives | Free allowance (per vendor/secondary sources, Oct 2026) | Fit |
+| --- | --- | --- | --- |
+| Gemini with billing enabled | Google Search grounding (best recall incl. forums) | 5,000 grounded searches/month free on Gemini 3, then $14/1k | Zero code change — best quality |
+| Tavily Search API | Search results + page content for agents | 1,000 credits/month, no card | Easiest drop-in search for the fallback path |
+| Exa | Neural search + contents | ~$10 credit/month | Good for docs discovery |
+| Groq `groq/compound` | LLM with built-in web search | Free tier ~250 requests/day (third-party figure); search billed $5–8/1k on paid | Would be a second LLM backend, larger change |
+| You.com / Firecrawl | Search / crawl | ~100 queries/day / 1,000 credits/month | Alternatives |

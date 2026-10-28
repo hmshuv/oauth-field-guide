@@ -46,10 +46,21 @@ We re-checked the most surprising claims — the ones a developer would be most 
 
 **Common assumptions the research overturned** (now in the guides): GitHub OAuth apps are not limited to one callback URL and tokens now expire by default; Notion tokens are no longer non-expiring; `gmail.send` is not restricted (but every read scope is); Salesforce "one connected app works in every org" no longer holds; Slack "customers can each create their own app from your manifest" is prohibited by its terms.
 
-## 4. What remains uncertain (highlights)
+## 4. First real live runs (free-tier Gemini key, 2026-10-28)
+
+The key had no Google Search grounding quota (429 "check your plan and billing" on every model) and a 20-requests/day free quota on `gemini-3.8-flash`, which led to the direct-docs fallback and the model chain.
+
+| App | Path | Calls · tokens | Result |
+| --- | --- | --- | --- |
+| Linear | direct-docs (8 official pages incl. OAuth, app manifests, actor authorization, rate limiting) | 3 · ~22k | Rated *Moderate*, self-serve with optional directory listing; PKCE, 30-min refresh grace, workspace-admin approval; 4/4 probes passed |
+| Plausible Analytics | direct-docs → limited (no public OAuth) | 3 · ~24k | *No public OAuth* verdict; API-key alternative (Business plan); console/authorize URLs left empty rather than invented; email to the real contact form |
+
+Issues found and fixed during these runs: grounding 429 handling, 503 "high demand" on two models in a row (now a 4-model chain with backoff), per-model daily free quota (now skips to the next model), an "aI agent" casing bug in the provider email.
+
+## 5. What remains uncertain (highlights)
 
 - Review timelines that providers don't publish (LinkedIn Standard tier, Slack Marketplace in practice).
 - Console-only facts we can't see without logging in (Slack's *Activate Public Distribution* checklist, Notion's current public-connection form fields).
 - CASA assessment cost and assurance level for a given Gmail app (community-reported only).
 - How a packaged Salesforce External Client App behaves cross-org in every edition.
-- The live investigator has been verified end-to-end with an offline harness (`npm run smoke`) and mock mode, **but not yet against the real Gemini API** — no key was available during the build. See README → *First live run*.
+- The search-grounded path has only been verified offline (`npm run smoke`); live runs so far used the direct-docs path.
